@@ -242,7 +242,7 @@ class Solution:
             )
             return f"[ {datos}{mensaje_desborde} {Fore.WHITE}]"
 
-        if self.hablar:
+        if True:
             voz = Thread(target=self.__anunciar_solucion)
             voz.start()
 
