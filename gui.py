@@ -10,6 +10,7 @@ def clean_ansi(text: str) -> str:
     """Elimina códigos de escape ANSI de la cadena."""
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
+
 ROOT = Path(__file__).resolve().parent
 
 STRATEGIES_QNODES = ["BruteForce", "QNodes", "Phi"]
@@ -229,7 +230,8 @@ class App:
             )
             self._log(str(resultado))
         finally:
-                os.chdir(old_cwd)
+            os.chdir(old_cwd)
+            
     def _run_geomip(self, estado, pagina, estrategia_nombre):
         method2_root = ROOT / "GeoMIP" / "src" / "Method2_Dynamic_Programming_Reformulation"
         old_cwd = Path.cwd()
@@ -285,46 +287,123 @@ class App:
             )
             # resultado es una cadena con colores ANSI
             texto_limpio = clean_ansi(str(resultado))
-            self._log(texto_limpio)  # ya está limpio
+            self._log(texto_limpio)
 
+            # --- Extracción de datos para CSV ---
             # --- Extracción de datos para CSV ---
             particion = ""
             perdida = ""
             tiempo = ""
 
-            # Buscar la línea de partición (ej: "G0: [BFG] | G1: [CEI] | G2: [AJ] | G3: [DH]")
-            for line in texto_limpio.splitlines():
-                if "G0:" in line and "G1:" in line and "G2:" in line:
-                    # Tomamos toda la línea, pero quitamos posibles prefijos como "Mejor Bi-Partición:"
-                    if "Mejor" in line:
-                        particion = line.split("Mejor Bi-Partición:")[-1].strip()
-                    else:
+            lineas = texto_limpio.splitlines()
+
+            # Detectar qué formato de partición se está usando
+            formato_g = False  # Formato con G0:, G1:, etc.
+            formato_barras = False  # Formato con barras |
+
+            # Primero, identificar el formato
+            for line in lineas:
+                if "G0:" in line and "G1:" in line:
+                    formato_g = True
+                    break
+                if "Mejor Bi-Partición" in line:
+                    # Revisar las siguientes líneas para ver si hay barras
+                    for i, l in enumerate(lineas):
+                        if "Mejor Bi-Partición" in l and i+1 < len(lineas):
+                            siguiente = lineas[i+1].strip()
+                            if "|" in siguiente:
+                                formato_barras = True
+                            break
+                    break
+
+            # Extraer según el formato detectado
+            if formato_g:
+                # Formato con G0:, G1:, etc. (k>=3)
+                for line in lineas:
+                    if "G0:" in line and "G1:" in line:
+                        if "Mejor" in line:
+                            particion = line.split("Mejor Bi-Partición:")[-1].strip()
+                        else:
+                            particion = line.strip()
+                        break
+            elif formato_barras:
+                # Formato con barras (k=2) -> convertir a formato G0:, G1:
+                grupo1 = ""
+                grupo2 = ""
+                for i, line in enumerate(lineas):
+                    if "Mejor Bi-Partición" in line:
+                        # Buscar las siguientes líneas con barras
+                        for j in range(i+1, min(i+5, len(lineas))):
+                            siguiente = lineas[j].strip()
+                            if "|" in siguiente:
+                                # Extraer grupos: ejemplo "|    B,C,D,E,F,G,J,K,L,N,O    || M |"
+                                # El primer grupo está entre la primera | y el ||
+                                # El segundo grupo está después del ||
+                                if "||" in siguiente:
+                                    partes = siguiente.split("||")
+                                    grupo1_raw = partes[0].replace("|", "").strip()
+                                    grupo2_raw = partes[1].replace("|", "").strip() if len(partes) > 1 else ""
+                                    
+                                    # Convertir a formato de lista [X,Y,Z]
+                                    if grupo1_raw:
+                                        elementos1 = [elem.strip() for elem in grupo1_raw.split(",")]
+                                        grupo1 = f"[{''.join(elementos1)}]"
+                                    if grupo2_raw and grupo2_raw != "∅":
+                                        elementos2 = [elem.strip() for elem in grupo2_raw.split(",")]
+                                        grupo2 = f"[{''.join(elementos2)}]"
+                                    else:
+                                        grupo2 = "[∅]"
+                                    break
+                        break
+                
+                # Construir la partición en formato G0: [X] | G1: [Y]
+                if grupo1 and grupo2:
+                    particion = f"G0: {grupo1} | G1: {grupo2}"
+                elif grupo1:
+                    particion = f"G0: {grupo1} | G1: []"
+                else:
+                    particion = f"G0: [] | G1: {grupo2}"
+
+            # Si ninguno de los formatos anteriores funcionó, intentar búsqueda genérica
+            if not particion:
+                for line in lineas:
+                    if line.strip().startswith("G0:") or (line.strip().startswith("|") and "Distribucion" not in line):
                         particion = line.strip()
+                        break
+
+            # Limpiar partición: eliminar espacios múltiples
+            if particion:
+                particion = re.sub(r'\s+', ' ', particion).strip()
+
+            # Buscar pérdida (φ) - funciona para ambos formatos
+            for line in lineas:
                 if "Perdida mínima" in line or "φ" in line:
-                    # Busca un número flotante
-                    import re
                     match = re.search(r"([0-9]+\.[0-9]+)", line)
                     if match:
                         perdida = match.group(1)
+                        break
+
+            # Buscar tiempo (Segundos:)
+            for line in lineas:
                 if "Segundos:" in line:
-                    # Extrae el valor después de "Segundos:"
                     parts = line.split("Segundos:")
                     if len(parts) > 1:
-                        tiempo = parts[1].strip().split()[0]  # toma el primer número
+                        tiempo = parts[1].strip().split()[0]
+                        break
 
-            # Si no encontró tiempo, buscar "Tiempos de ejecución:" y la siguiente línea
+            # Si no encontró tiempo, buscar en la línea siguiente a "Tiempos de ejecución:"
             if not tiempo:
-                for i, line in enumerate(texto_limpio.splitlines()):
-                    if "Tiempos de ejecución:" in line and i+1 < len(texto_limpio.splitlines()):
-                        next_line = texto_limpio.splitlines()[i+1]
+                for i, line in enumerate(lineas):
+                    if "Tiempos de ejecución:" in line and i+1 < len(lineas):
+                        next_line = lineas[i+1]
                         if "Segundos:" in next_line:
                             parts = next_line.split("Segundos:")
                             if len(parts) > 1:
                                 tiempo = parts[1].strip().split()[0]
                         break
 
-            # Mostrar los tres valores al final, en formato CSV
-            csv_line = f"{particion}, {perdida}, {tiempo}"
+            # Mostrar los tres valores al final, en formato CSV con tabuladores
+            csv_line = f"{particion}\t{perdida}\t{tiempo}"
             self._log("\n" + "="*50)
             self._log("📋 DATOS PARA EXCEL (copiar esta línea):")
             self._log(csv_line)
