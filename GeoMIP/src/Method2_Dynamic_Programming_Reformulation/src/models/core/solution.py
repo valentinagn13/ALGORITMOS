@@ -8,6 +8,7 @@ from typing import Optional
 
 from src.constants.base import FLOAT_ZERO
 from src.models.base.application import aplicacion
+from src.funcs.format import fmt_grupos_particion
 
 # Iniciar colorama
 init()
@@ -116,6 +117,8 @@ class Solution:
         hablar: bool = True,
         voz: Optional[str] = None,
         tiempos_parciales: Optional[dict[str, float]] = None,
+        grupos_futuro: Optional[list[str]] = None,
+        grupos_presente: Optional[list[str]] = None,
     ) -> None:
         """
         Inicializa una nueva instancia de Solution.
@@ -130,6 +133,8 @@ class Solution:
         self.tiempos_parciales = tiempos_parciales or {}
         self.id_voz = voz
         self.hablar = hablar
+        self.grupos_futuro = grupos_futuro or []
+        self.grupos_presente = grupos_presente or []
 
     def __obtener_voz_espanol(self, motor: Engine) -> Optional[str]:
         """
@@ -215,6 +220,11 @@ class Solution:
         except Exception as e:
             print(f"Error al inicializar el motor de voz: {e}")
 
+    def _display_particion(self) -> str:
+        if self.grupos_futuro and self.grupos_presente:
+            return fmt_grupos_particion(self.grupos_futuro, self.grupos_presente)
+        return self.particion
+
     def __str__(self) -> str:
         """
         Genera una representación en string formateada y coloreadita de la solución.
@@ -297,7 +307,7 @@ class Solution:
 {Style.RESET_ALL}{formatear_distribucion(self.distribucion_particion)}
 
 {Fore.YELLOW}Mejor Bi-Partición:
-{Fore.MAGENTA}{self.particion}
+{Fore.MAGENTA}{self._display_particion()}
 {Fore.GREEN}Perdida mínima ( φ ) = {self.perdida:.4f}
 
 {Fore.BLUE}Tiempos de ejecución:

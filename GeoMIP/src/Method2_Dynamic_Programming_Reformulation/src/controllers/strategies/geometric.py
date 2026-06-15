@@ -19,7 +19,7 @@ from src.constants.models import (
     GEOMETRIC_STRAREGY_TAG,
 )
 from src.controllers.manager import Manager
-from src.funcs.format import fmt_biparte_q
+from src.funcs.format import fmt_grupos_particion
 from src.middlewares.profile import profiler_manager, profile
 from src.models.core.solution import Solution
 import numpy as np
@@ -109,7 +109,8 @@ class GeometricSIA(SIA):
 
         mip = self.find_mip(k=k)
 
-        fmt_mip = self._formatear_particion(mip, k)
+        grupos_futuro, grupos_presente = self._formatear_particion(mip, k)
+        fmt_mip = fmt_grupos_particion(grupos_futuro, grupos_presente)
 
         # ── Tabla comparativa final ──
         self.logger.info("")
@@ -133,6 +134,8 @@ class GeometricSIA(SIA):
             distribucion_particion=self.memoria_particiones[mip][1],
             tiempo_total=time.time() - self.sia_tiempo_inicio,
             particion=fmt_mip,
+            grupos_futuro=grupos_futuro,
+            grupos_presente=grupos_presente,
             tiempos_parciales={
                 "preparacion": self._tiempo_preparacion,
                 "hipercubo": self._tiempo_hipercubo,
@@ -140,20 +143,46 @@ class GeometricSIA(SIA):
             },
         )
 
-    def _formatear_particion(self, mip: tuple, k: int) -> str:
+    def _formatear_particion(self, mip: tuple, k: int) -> tuple[list[str], list[str]]:
+        """
+        Convierte una partición (mip) en listas estructuradas de grupos.
+
+        Returns:
+            (grupos_futuro, grupos_presente):
+              - grupos_futuro:  lista de cadenas con letras MAYÚSCULAS separadas por coma
+              - grupos_presente: lista de cadenas con letras minúsculas separadas por coma
+        """
         if k == 2:
             complemento = list(set(self.vertices) - set(mip))
-            return fmt_biparte_q(list(mip), complemento)
 
+            fut_mip = sorted(n for tag, n in mip if tag == 1)
+            pres_mip = sorted(n for tag, n in mip if tag == 0)
+            fut_comp = sorted(n for tag, n in complemento if tag == 1)
+            pres_comp = sorted(n for tag, n in complemento if tag == 0)
+
+            grupos_fut = [
+                ",".join(ABECEDARY[i] for i in fut_mip),
+                ",".join(ABECEDARY[i] for i in fut_comp),
+            ]
+            grupos_pres = [
+                ",".join(ABECEDARY[i].lower() for i in pres_mip),
+                ",".join(ABECEDARY[i].lower() for i in pres_comp),
+            ]
+            return grupos_fut, grupos_pres
+
+        # k > 2
         grupos: dict[int, list[int]] = {}
         for g_idx, nodo in mip:
             grupos.setdefault(g_idx, []).append(nodo)
 
-        partes = []
+        grupos_fut = []
+        grupos_pres = []
         for g in sorted(grupos):
-            letras = "".join(ABECEDARY[i] for i in grupos[g])
-            partes.append(f"G{g}: [{letras}]")
-        return " | ".join(partes)
+            nodos = sorted(grupos[g])
+            grupos_fut.append(",".join(ABECEDARY[i] for i in nodos))
+            grupos_pres.append(",".join(ABECEDARY[i].lower() for i in nodos))
+
+        return grupos_fut, grupos_pres
 
     def find_mip(self, k: int = 2):
         """

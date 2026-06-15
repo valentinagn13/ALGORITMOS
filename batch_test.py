@@ -63,7 +63,7 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
     perdida = ""
     tiempo = ""
 
-    # Detectar formato (G0: o barras)
+    # Detectar formato: nuevo (barras ||) o antiguo (G0:)
     formato_g = any("G0:" in line and "G1:" in line for line in lineas)
     formato_barras = any("Mejor Bi-Partición" in line for line in lineas)
 
@@ -76,26 +76,19 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
                     particion = line.strip()
                 break
     elif formato_barras:
-        # Convertir formato de barras a G0: | G1:
+        # Nuevo formato: | G1 || G2 || … |
         for i, line in enumerate(lineas):
             if "Mejor Bi-Partición" in line:
                 for j in range(i+1, min(i+5, len(lineas))):
                     siguiente = lineas[j].strip()
-                    if "|" in siguiente and "||" in siguiente:
-                        partes = siguiente.split("||")
-                        grupo1_raw = partes[0].replace("|", "").strip()
-                        grupo2_raw = partes[1].replace("|", "").strip() if len(partes) > 1 else ""
-                        if grupo1_raw:
-                            elementos1 = [e.strip() for e in grupo1_raw.split(",")]
-                            grupo1 = f"[{''.join(elementos1)}]"
-                        else:
-                            grupo1 = "[]"
-                        if grupo2_raw and grupo2_raw != "∅":
-                            elementos2 = [e.strip() for e in grupo2_raw.split(",")]
-                            grupo2 = f"[{''.join(elementos2)}]"
-                        else:
-                            grupo2 = "[∅]"
-                        particion = f"G0: {grupo1} | G1: {grupo2}"
+                    if siguiente.startswith("|") and "||" in siguiente:
+                        inner = siguiente.strip("|").strip()
+                        grupos_raw = [g.strip() for g in inner.split("||")]
+                        grupos_formateados = []
+                        for idx, g in enumerate(grupos_raw):
+                            letras = "".join(e.strip() for e in g.split(",") if e.strip())
+                            grupos_formateados.append(f"G{idx}: [{letras}]")
+                        particion = " | ".join(grupos_formateados)
                         break
                 break
 
@@ -142,7 +135,7 @@ def main():
     pruebas = [
         ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRST"),  # 1
         ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRS"),   # 2
-        ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRST"),   # 3
+        #("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRST"),   # 3
         # ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRS"),    # 4
         # ("ABCDEFGHIJKLMNOPQRST", "ABDEGHJKMNPQST"),        # 5
         # ("ABCDEFGHIJKLMNOPQRST", "ACEGIKMOQS"),            # 6

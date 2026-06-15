@@ -299,7 +299,7 @@ class App:
 
             # Detectar qué formato de partición se está usando
             formato_g = False  # Formato con G0:, G1:, etc.
-            formato_barras = False  # Formato con barras |
+            formato_barras = False  # Formato con barras | ... ||
 
             # Primero, identificar el formato
             for line in lineas:
@@ -307,13 +307,7 @@ class App:
                     formato_g = True
                     break
                 if "Mejor Bi-Partición" in line:
-                    # Revisar las siguientes líneas para ver si hay barras
-                    for i, l in enumerate(lineas):
-                        if "Mejor Bi-Partición" in l and i+1 < len(lineas):
-                            siguiente = lineas[i+1].strip()
-                            if "|" in siguiente:
-                                formato_barras = True
-                            break
+                    formato_barras = True
                     break
 
             # Extraer según el formato detectado
@@ -327,42 +321,22 @@ class App:
                             particion = line.strip()
                         break
             elif formato_barras:
-                # Formato con barras (k=2) -> convertir a formato G0:, G1:
-                grupo1 = ""
-                grupo2 = ""
+                # Nuevo formato: | G1 || G2 || … |
+                # Buscar la primera línea que empiece con | y contenga ||
                 for i, line in enumerate(lineas):
                     if "Mejor Bi-Partición" in line:
-                        # Buscar las siguientes líneas con barras
                         for j in range(i+1, min(i+5, len(lineas))):
                             siguiente = lineas[j].strip()
-                            if "|" in siguiente:
-                                # Extraer grupos: ejemplo "|    B,C,D,E,F,G,J,K,L,N,O    || M |"
-                                # El primer grupo está entre la primera | y el ||
-                                # El segundo grupo está después del ||
-                                if "||" in siguiente:
-                                    partes = siguiente.split("||")
-                                    grupo1_raw = partes[0].replace("|", "").strip()
-                                    grupo2_raw = partes[1].replace("|", "").strip() if len(partes) > 1 else ""
-                                    
-                                    # Convertir a formato de lista [X,Y,Z]
-                                    if grupo1_raw:
-                                        elementos1 = [elem.strip() for elem in grupo1_raw.split(",")]
-                                        grupo1 = f"[{''.join(elementos1)}]"
-                                    if grupo2_raw and grupo2_raw != "∅":
-                                        elementos2 = [elem.strip() for elem in grupo2_raw.split(",")]
-                                        grupo2 = f"[{''.join(elementos2)}]"
-                                    else:
-                                        grupo2 = "[∅]"
-                                    break
+                            if siguiente.startswith("|") and "||" in siguiente:
+                                inner = siguiente.strip("|").strip()
+                                grupos_raw = [g.strip() for g in inner.split("||")]
+                                grupos_formateados = []
+                                for idx, g in enumerate(grupos_raw):
+                                    letras = "".join(e.strip() for e in g.split(",") if e.strip())
+                                    grupos_formateados.append(f"G{idx}: [{letras}]")
+                                particion = " | ".join(grupos_formateados)
+                                break
                         break
-                
-                # Construir la partición en formato G0: [X] | G1: [Y]
-                if grupo1 and grupo2:
-                    particion = f"G0: {grupo1} | G1: {grupo2}"
-                elif grupo1:
-                    particion = f"G0: {grupo1} | G1: []"
-                else:
-                    particion = f"G0: [] | G1: {grupo2}"
 
             # Si ninguno de los formatos anteriores funcionó, intentar búsqueda genérica
             if not particion:

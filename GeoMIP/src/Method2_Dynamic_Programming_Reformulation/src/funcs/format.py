@@ -2,6 +2,49 @@ from src.funcs.base import ABECEDARY, LOWER_ABECEDARY
 from src.constants.base import VOID_STR
 
 
+def fmt_grupos_particion(
+    grupos_futuro: list[str],
+    grupos_presente: list[str],
+) -> str:
+    """
+    Formatea grupos de partición en el formato de dos líneas más etiquetas S₁, S₂, …
+
+    Ejemplo (k=3):
+        | A,C,D,E,H,P,Q || B,F,G,J,M,R,T || I,K,L,N,O,S |
+        | a,c,d,e,h,p,q ||  b,f,g,j,m,r  || i,k,l,n,o,s |
+               S₁               S₂              S₃
+    """
+    top_parts: list[str] = []
+    bottom_parts: list[str] = []
+    widths: list[int] = []
+
+    for fut, pres in zip(grupos_futuro, grupos_presente):
+        w = max(len(fut), len(pres)) + 2  # +2 for padding spaces
+        widths.append(w)
+        top_parts.append(fut.center(w))
+        bottom_parts.append(pres.center(w))
+
+    sep = "||"
+    top_line = "|" + sep.join(top_parts) + "|"
+    bottom_line = "|" + sep.join(bottom_parts) + "|"
+
+    # Build S₁, S₂, … label line
+    label_chars: list[str] = []
+    for i, w in enumerate(widths):
+        start = 1 + sum(widths[j] + 2 for j in range(i))
+        center = start + w // 2
+        label = f"S{i + 1}"
+        pos = center - len(label) // 2
+        while len(label_chars) <= pos + len(label):
+            label_chars.append(" ")
+        for k, c in enumerate(label):
+            label_chars[pos + k] = c
+
+    label_line = "".join(label_chars).rstrip()
+
+    return top_line + "\n" + bottom_line + "\n" + label_line
+
+
 def fmt_biparticion(
     parte_uno: list[tuple[int, ...], tuple[int, ...]],
     parte_dos: list[tuple[int, ...], tuple[int, ...]],
