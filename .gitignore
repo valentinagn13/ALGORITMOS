@@ -77,3 +77,13 @@ node_modules/
 
 # Archivos temporales de profiling
 profiling/
+# Archivos grandes que no deben subirse
+*.log
+.logs/
+node_modules/
+*.exe
+*.csv
+*.xlsx
+*.pdf
+*.png
+*.html
