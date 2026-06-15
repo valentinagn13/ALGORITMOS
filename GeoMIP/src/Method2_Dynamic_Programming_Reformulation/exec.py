@@ -17,7 +17,7 @@ def main():
         ejecutar_interactivo()
         return
 
-    aplicacion.profiler_habilitado = True
+    aplicacion.profiler_habilitado = False
 
     iniciar()
 

@@ -117,7 +117,14 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
 
     # Convertir punto a coma para compatibilidad con Google Sheets
     perdida = perdida.replace('.', ',') if perdida else ""
-    tiempo = tiempo.replace('.', ',') if tiempo else ""
+
+    if tiempo:
+        segundos = float(tiempo.replace(',', '.'))
+        minutos = int(segundos // 60)
+        segs = int(segundos % 60)
+        tiempo = f"min:{minutos}, seg={segs}"
+    else:
+        tiempo = ""
 
     return particion, perdida, tiempo
 
@@ -127,60 +134,60 @@ def main():
     print(f"Ejecutando pruebas con k = {k}\n", file=sys.stderr)
 
     # Estado inicial fijo (20 bits)
-    estado = "10000000000000000000"
+    estado = "100000000000000"
 
     # Lista de pruebas: (alcance, mecanismo)
     pruebas = [
-        #("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRST"),  # 1
-       # ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRS"),   # 2
-        #("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRST"),   # 3
-        # ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRS"),    # 4
-        # ("ABCDEFGHIJKLMNOPQRST", "ABDEGHJKMNPQST"),        # 5
-        # ("ABCDEFGHIJKLMNOPQRST", "ACEGIKMOQS"),            # 6
-        # ("ABCDEFGHIJKLMNOPQRST", "BDFHJLNPRT"),            # 7
-        # ("ABCDEFGHIJKLMNOPQRS",  "ABCDEFGHIJKLMNOPQRST"),  # 8
-        # ("ABCDEFGHIJKLMNOPQRS",  "ABCDEFGHIJKLMNOPQRS"),   # 9
-        # ("ABCDEFGHIJKLMNOPQRS",  "BCDEFGHIJKLMNOPQRST"),   # 10
-        # ("ABCDEFGHIJKLMNOPQRS",  "BCDEFGHIJKLMNOPQRS"),    # 11
-        # ("ABCDEFGHIJKLMNOPQRS",  "ABDEGHJKMNPQST"),        # 12
-        # ("ABCDEFGHIJKLMNOPQRS",  "ACEGIKMOQS"),            # 13
-        # ("ABCDEFGHIJKLMNOPQRS",  "BDFHJLNPRT"),            # 14
-        # ("BCDEFGHIJKLMNOPQRST",  "ABCDEFGHIJKLMNOPQRST"),  # 15
-        # ("BCDEFGHIJKLMNOPQRST",  "ABCDEFGHIJKLMNOPQRS"),   # 16
-        # ("BCDEFGHIJKLMNOPQRST",  "BCDEFGHIJKLMNOPQRST"),   # 17
-        # ("BCDEFGHIJKLMNOPQRST",  "BCDEFGHIJKLMNOPQRS"),    # 18
-        # ("BCDEFGHIJKLMNOPQRST",  "ABDEGHJKMNPQST"),        # 19
-        # ("BCDEFGHIJKLMNOPQRST",  "ACEGIKMOQS"),            # 20
-        # ("BCDEFGHIJKLMNOPQRST",  "BDFHJLNPRT"),            # 21
-        # ("BCDEFGHIJKLMNOPQRS",   "ABCDEFGHIJKLMNOPQRST"),  # 22
-        # ("BCDEFGHIJKLMNOPQRS",   "ABCDEFGHIJKLMNOPQRS"),   # 23
-        # ("BCDEFGHIJKLMNOPQRS",   "BCDEFGHIJKLMNOPQRST"),   # 24
-        # ("BCDEFGHIJKLMNOPQRS",   "BCDEFGHIJKLMNOPQRS"),    # 25
-        # ("BCDEFGHIJKLMNOPQRS",   "ABDEGHJKMNPQST"),        # 26
-        # ("BCDEFGHIJKLMNOPQRS",   "ACEGIKMOQS"),            # 27
-        # ("BCDEFGHIJKLMNOPQRS",   "BDFHJLNPRT"),            # 28
-        # ("ABDEGHJKMNPQST",       "ABCDEFGHIJKLMNOPQRST"),  # 29
-        # ("ABDEGHJKMNPQST",       "ABCDEFGHIJKLMNOPQRS"),   # 30
-        # ("ABDEGHJKMNPQST",       "BCDEFGHIJKLMNOPQRST"),   # 31
-        # ("ABDEGHJKMNPQST",       "BCDEFGHIJKLMNOPQRS"),    # 32
-        # ("ABDEGHJKMNPQST",       "ABDEGHJKMNPQST"),        # 33
-        # ("ABDEGHJKMNPQST",       "ACEGIKMOQS"),            # 34
-        # ("ABDEGHJKMNPQST",       "BDFHJLNPRT"),            # 35
-        # ("ACEGIKMOQS",           "ABCDEFGHIJKLMNOPQRST"),  # 36
-        # ("ACEGIKMOQS",           "ABCDEFGHIJKLMNOPQRS"),   # 37
-        # ("ACEGIKMOQS",           "BCDEFGHIJKLMNOPQRST"),   # 38
-        # ("ACEGIKMOQS",           "BCDEFGHIJKLMNOPQRS"),    # 39
-        # ("ACEGIKMOQS",           "ABDEGHJKMNPQST"),        # 40
-        # ("ACEGIKMOQS",           "ACEGIKMOQS"),            # 41
-        # ("ACEGIKMOQS",           "BDFHJLNPRT"),            # 42
-        # ("BDFHJLNPRT",           "ABCDEFGHIJKLMNOPQRST"),  # 43
-        # ("BDFHJLNPRT",           "ABCDEFGHIJKLMNOPQRS"),   # 44
-        # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRST"),   # 45
-        # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRS"),    # 46
-        # ("BDFHJLNPRT",           "ABDEGHJKMNPQST"),        # 47
-        ("BDFHJLNPRT",           "ACEGIKMOQS"),            # 48
-         ("BDFHJLNPRT",           "BDFHJLNPRT"),            # 49
-        # ("BCDEFGJKLMNO",         "BCDEFGHIJKLMNO"),        # 50
+        ("ABCDEFGHIJKLMNO", "ABCDEFGHIJKLMNO"),  # 1
+        ("ABCDEFGHIJKLMNO", "ABCDEFGHIJKLMN"),   # 2
+        ("ABCDEFGHIJKLMNO", "BCDEFGHIJKLMNO"),   # 3
+        ("ABCDEFGHIJKLMNO", "BCDEFGHIJKLMN"),    # 4
+        ("ABCDEFGHIJKLMNO", "ABDEGHJKMN"),       # 5
+        ("ABCDEFGHIJKLMNO", "ACEGIKMO"),         # 6
+        ("ABCDEFGHIJKLMNO", "BDFHJLN"),          # 7
+        ("ABCDEFGHIJKLMN", "ABCDEFGHIJKLMNO"),   # 8
+        ("ABCDEFGHIJKLMN", "ABCDEFGHIJKLMN"),    # 9
+        #("ABCDEFGHIJKLMN", "BCDEFGHIJKLMNO"),    # 10
+        #("ABCDEFGHIJKLMN", "BCDEFGHIJKLMN"),     # 11
+        #("ABCDEFGHIJKLMN", "ABDEGHJKMN"),        # 12
+        #("ABCDEFGHIJKLMN", "ACEGIKMO"),          # 13
+        #("ABCDEFGHIJKLMN", "BDFHJLN"),           # 14
+        #("BCDEFGHIJKLMNO", "ABCDEFGHIJKLMNO"),   # 15
+        #("BCDEFGHIJKLMNO", "ABCDEFGHIJKLMN"),    # 16
+        #("BCDEFGHIJKLMNO", "BCDEFGHIJKLMNO"),    # 17
+        #("BCDEFGHIJKLMNO", "BCDEFGHIJKLMN"),     # 18
+        #("BCDEFGHIJKLMNO", "ABDEGHJKMN"),        # 19
+        #("BCDEFGHIJKLMNO", "ACEGIKMO"),          # 20
+        #("BCDEFGHIJKLMNO", "BDFHJLN"),           # 21
+        #("BCDEFGHIJKLMN", "ABCDEFGHIJKLMNO"),    # 22
+        #("BCDEFGHIJKLMN", "ABCDEFGHIJKLMN"),     # 23
+        #("BCDEFGHIJKLMN", "BCDEFGHIJKLMNO"),     # 24
+        #("BCDEFGHIJKLMN", "BCDEFGHIJKLMN"),      # 25
+        #("BCDEFGHIJKLMN", "ABDEGHJKMN"),         # 26
+        #("BCDEFGHIJKLMN", "ACEGIKMO"),           # 27
+        #("BCDEFGHIJKLMN", "BDFHJLN"),            # 28
+     #   ("ABDEGHJKMN", "ABCDEFGHIJKLMNO"),       # 29
+     #   ("ABDEGHJKMN", "ABCDEFGHIJKLMN"),        # 30
+     #   ("ABDEGHJKMN", "BCDEFGHIJKLMNO"),        # 31
+     #   ("ABDEGHJKMN", "BCDEFGHIJKLMN"),         # 32
+     #   ("ABDEGHJKMN", "ABDEGHJKMN"),            # 33
+     #   ("ABDEGHJKMN", "ACEGIKMO"),              # 34
+     #   ("ABDEGHJKMN", "BDFHJLN"),               # 35
+   #     ("ACEGIKMO", "ABCDEFGHIJKLMNO"),         # 36
+   #     ("ACEGIKMO", "ABCDEFGHIJKLMN"),          # 37
+   #     ("ACEGIKMO", "BCDEFGHIJKLMNO"),          # 38
+   #     ("ACEGIKMO", "BCDEFGHIJKLMN"),           # 39
+   #     ("ACEGIKMO", "ABDEGHJKMN"),              # 40
+   #     ("ACEGIKMO", "ACEGIKMO"),                # 41
+   #     ("ACEGIKMO", "BDFHJLN"),                 # 42
+  #      ("BDFHJLN", "ABCDEFGHIJKLMNO"),          # 43
+  #      ("BDFHJLN", "ABCDEFGHIJKLMN"),           # 44
+  #      ("BDFHJLN", "BCDEFGHIJKLMNO"),           # 45
+  #      ("BDFHJLN", "BCDEFGHIJKLMN"),            # 46
+  #      ("BDFHJLN", "ABDEGHJKMN"),               # 47
+  #      ("BDFHJLN", "ACEGIKMO"),                 # 48
+  #      ("BDFHJLN", "BDFHJLN"),                  # 49
+       # ("BCDEFGJKLMNO", "BCDEFGHIJKLMNO"),      # 50
     ]
 
     # Lista para almacenar las líneas de salida
