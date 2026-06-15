@@ -55,3 +55,25 @@ dist/
 build/
 
 .log
+
+
+
+# Archivos de log (tanto .log como carpetas .logs)
+*.log
+.logs/
+
+# Dependencias de Node
+node_modules/
+
+
+
+# Ejecutables
+*.exe
+*.bin
+
+# Archivos de reportes generados (HTML, profiling)
+*.html
+
+
+# Archivos temporales de profiling
+profiling/
