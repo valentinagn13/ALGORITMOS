@@ -76,19 +76,17 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
                     particion = line.strip()
                 break
     elif formato_barras:
-        # Nuevo formato: | G1 || G2 || … |
+        # Nuevo formato 3 líneas: futuro, presente, etiquetas
         for i, line in enumerate(lineas):
             if "Mejor Bi-Partición" in line:
                 for j in range(i+1, min(i+5, len(lineas))):
-                    siguiente = lineas[j].strip()
-                    if siguiente.startswith("|") and "||" in siguiente:
-                        inner = siguiente.strip("|").strip()
-                        grupos_raw = [g.strip() for g in inner.split("||")]
-                        grupos_formateados = []
-                        for idx, g in enumerate(grupos_raw):
-                            letras = "".join(e.strip() for e in g.split(",") if e.strip())
-                            grupos_formateados.append(f"G{idx}: [{letras}]")
-                        particion = " | ".join(grupos_formateados)
+                    if lineas[j].strip().startswith("|") and "||" in lineas[j]:
+                        particion_lines = [lineas[j].rstrip()]
+                        if j+1 < len(lineas) and lineas[j+1].strip().startswith("|"):
+                            particion_lines.append(lineas[j+1].rstrip())
+                            if j+2 < len(lineas) and lineas[j+2].strip():
+                                particion_lines.append(lineas[j+2].rstrip())
+                        particion = "\n".join(particion_lines)
                         break
                 break
 
@@ -133,8 +131,8 @@ def main():
 
     # Lista de pruebas: (alcance, mecanismo)
     pruebas = [
-        ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRST"),  # 1
-        ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRS"),   # 2
+        #("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRST"),  # 1
+       # ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRS"),   # 2
         #("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRST"),   # 3
         # ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRS"),    # 4
         # ("ABCDEFGHIJKLMNOPQRST", "ABDEGHJKMNPQST"),        # 5
@@ -180,8 +178,8 @@ def main():
         # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRST"),   # 45
         # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRS"),    # 46
         # ("BDFHJLNPRT",           "ABDEGHJKMNPQST"),        # 47
-        # ("BDFHJLNPRT",           "ACEGIKMOQS"),            # 48
-        # ("BDFHJLNPRT",           "BDFHJLNPRT"),            # 49
+        ("BDFHJLNPRT",           "ACEGIKMOQS"),            # 48
+         ("BDFHJLNPRT",           "BDFHJLNPRT"),            # 49
         # ("BCDEFGJKLMNO",         "BCDEFGHIJKLMNO"),        # 50
     ]
 

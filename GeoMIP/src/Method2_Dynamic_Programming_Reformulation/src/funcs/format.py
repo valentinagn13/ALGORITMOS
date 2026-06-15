@@ -7,12 +7,12 @@ def fmt_grupos_particion(
     grupos_presente: list[str],
 ) -> str:
     """
-    Formatea grupos de partición en el formato de dos líneas más etiquetas S₁, S₂, …
+    Formatea grupos de partición en el formato de dos líneas más etiquetas G1, G2, …
 
     Ejemplo (k=3):
         | A,C,D,E,H,P,Q || B,F,G,J,M,R,T || I,K,L,N,O,S |
         | a,c,d,e,h,p,q ||  b,f,g,j,m,r  || i,k,l,n,o,s |
-               S₁               S₂              S₃
+               G1               G2              G3
     """
     top_parts: list[str] = []
     bottom_parts: list[str] = []
@@ -33,7 +33,7 @@ def fmt_grupos_particion(
     for i, w in enumerate(widths):
         start = 1 + sum(widths[j] + 2 for j in range(i))
         center = start + w // 2
-        label = f"S{i + 1}"
+        label = f"G{i + 1}"
         pos = center - len(label) // 2
         while len(label_chars) <= pos + len(label):
             label_chars.append(" ")
