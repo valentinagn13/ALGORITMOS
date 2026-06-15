@@ -82,7 +82,7 @@ class SafeLogger:
         last_log_file = base_log_dir / f"last_{name}.log"
 
         logger = logging.getLogger(name)
-        logger.setLevel(logging.ERROR)
+        logger.setLevel(logging.DEBUG)
         # Importante: evita la propagación a loggers padre
         logger.propagate = False
         logger.handlers.clear()

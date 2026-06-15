@@ -107,7 +107,6 @@ class QNodes(SIA):
         self.tiempos: tuple[np.ndarray, np.ndarray]
         self.etiquetas = [tuple(s.lower() for s in ABECEDARY), ABECEDARY]
         self.vertices: set[tuple]
-        # self.memoria_delta = dict()
         self.memoria_omega = dict()
         self.memoria_particiones = dict()
 
@@ -116,21 +115,47 @@ class QNodes(SIA):
 
         self.logger = SafeLogger(QNODES_STRAREGY_TAG)
 
+        self._tiempo_preparacion: float = 0.0
+        self._tiempo_algoritmo: float = 0.0
+        self._candidatos_log: list[tuple[str, float]] = []
+
     @profile(context={TYPE_TAG: QNODES_ANALYSIS_TAG})
     def aplicar_estrategia(
         self,
         condicion: str,
         alcance: str,
         mecanismo: str,
+        tpm: np.ndarray = None,
+        k: int = 2,
     ):
-        self.sia_preparar_subsistema(condicion, alcance, mecanismo)
+        self.logger.info("═" * 60)
+        self.logger.info("     ESTRATEGIA Q-NODES — INICIO")
+        self.logger.info("═" * 60)
+
+        if tpm is not None:
+            self.sia_preparar_subsistema(condicion, alcance, mecanismo, tpm)
+        else:
+            self.sia_preparar_subsistema(condicion, alcance, mecanismo)
+
+        self._tiempo_preparacion = time.time()
 
         futuro = tuple(
             (EFECTO, efecto) for efecto in self.sia_subsistema.indices_ncubos
         )
         presente = tuple(
             (ACTUAL, actual) for actual in self.sia_subsistema.dims_ncubos
-        )  #
+        )
+
+        self.logger.info("─" * 50)
+        self.logger.info("  FASE 1: PREPARACIÓN DEL SUBSISTEMA")
+        self.logger.info("─" * 50)
+        self.logger.info(f"  • Condición (background):   {condicion}")
+        self.logger.info(f"  • Alcance (futuro):         {alcance}")
+        self.logger.info(f"  • Mecanismo (presente):     {mecanismo}")
+        self.logger.info(f"  • k (particiones):          {k}")
+        self.logger.info(f"  • Vértices futuro (EFECTO): {[ABECEDARY[e] for e in self.sia_subsistema.indices_ncubos]}")
+        self.logger.info(f"  • Vértices presente (ACTUAL): {[ABECEDARY[a] for a in self.sia_subsistema.dims_ncubos]}")
+        self.logger.info(f"  • Distribución marginal ref: {np.array2string(self.sia_dists_marginales, precision=4)}")
 
         self.m = self.sia_subsistema.indices_ncubos.size
         self.n = self.sia_subsistema.dims_ncubos.size
@@ -145,9 +170,31 @@ class QNodes(SIA):
 
         vertices = list(presente + futuro)
         self.vertices = set(presente + futuro)
-        mip = self.algorithm(vertices)
 
-        fmt_mip = fmt_biparte_q(list(mip), self.nodes_complement(mip))
+        self._tiempo_preparacion = time.time() - self._tiempo_preparacion
+        self.logger.info(f"  ✅ Preparación completada en {self._tiempo_preparacion:.4f}s")
+
+        if k == 2:
+            mip = self._algorithm_k2(vertices)
+            fmt_mip = fmt_biparte_q(list(mip), self.nodes_complement(mip))
+        else:
+            mip = self._algorithm_kk(vertices, k)
+            fmt_mip = self._formatear_kparticion(mip, k)
+
+        # ── Tabla comparativa final ──
+        self.logger.info("")
+        self.logger.info("═" * 60)
+        self.logger.info("     SELECCIÓN FINAL — TABLA COMPARATIVA")
+        self.logger.info("═" * 60)
+        self.logger.info(f"  {'Grupo candidato':<30} {'EMD':<15}")
+        self.logger.info("  " + "─" * 45)
+        for desc, phi_val in self._candidatos_log:
+            marca = " ◀ MÍN" if phi_val == self.memoria_particiones[mip][0] else ""
+            self.logger.info(f"  {desc:<30} {phi_val:<15.6f}{marca}")
+        self.logger.info("")
+        self.logger.info(f"  🏆 Grupo elegido: EMD = {self.memoria_particiones[mip][0]:.6f}")
+        self.logger.info(f"  📋 Partición final:\n{fmt_mip}")
+        self.logger.info(f"  ⏱  Tiempos: preparación={self._tiempo_preparacion:.4f}s  algoritmo={self._tiempo_algoritmo:.4f}s  total={time.time()-self.sia_tiempo_inicio:.4f}s")
 
         return Solution(
             estrategia=QNODES_LABEL,
@@ -156,60 +203,140 @@ class QNodes(SIA):
             distribucion_particion=self.memoria_particiones[mip][1],
             tiempo_total=time.time() - self.sia_tiempo_inicio,
             particion=fmt_mip,
+            tiempos_parciales={
+                "preparacion": self._tiempo_preparacion,
+                "algoritmo": self._tiempo_algoritmo,
+            },
         )
 
+    def _algorithm_k2(self, vertices):
+        return self.algorithm(vertices)
+
+    def _algorithm_kk(self, vertices, k):
+        self._tiempo_algoritmo = time.time()
+        self.logger.info("")
+        self.logger.info("─" * 50)
+        self.logger.info(f"  FASE 2: BÚSQUEDA DE k={k}-PARTICIONES (round-robin)")
+        self.logger.info("─" * 50)
+
+        dims_ncubos = self.sia_subsistema.dims_ncubos
+        indices_ncubos = self.sia_subsistema.indices_ncubos
+
+        grupos_alcance = [[] for _ in range(k)]
+        for pos, var in enumerate(indices_ncubos):
+            grupos_alcance[pos % k].append(int(var))
+
+        grupos_mecanismo = [[] for _ in range(k)]
+        for pos, dim in enumerate(dims_ncubos):
+            grupos_mecanismo[pos % k].append(int(dim))
+
+        mejor_emd = INFTY_POS
+        mejor_dist = None
+        mejor_grupos = None
+        mejor_key = None
+
+        for g_idx in range(k):
+            futuros_g = np.array(grupos_alcance[g_idx], dtype=np.int8)
+            presentes_g = np.array(grupos_mecanismo[g_idx], dtype=np.int8)
+
+            grupos_glob = [futuros_g]
+            mecanismos_glob = [presentes_g]
+
+            otros_futuros = np.setdiff1d(indices_ncubos, futuros_g)
+            otros_presentes = np.setdiff1d(dims_ncubos, presentes_g)
+
+            if otros_futuros.size > 0:
+                grupos_glob.append(otros_futuros)
+                mecanismos_glob.append(otros_presentes)
+
+            dist = self._kpartir(grupos_glob, mecanismos_glob)
+            emd = emd_efecto(dist, self.sia_dists_marginales)
+
+            g_letras = "".join(ABECEDARY[i] for i in futuros_g) if futuros_g.size > 0 else "∅"
+            self.logger.info(f"  • Grupo G{g_idx}: [{g_letras}]  φ = {emd:.6f}")
+            self._candidatos_log.append((f"G{g_idx} [{g_letras}]", emd))
+
+            key = tuple([(g_idx, int(n)) for n in futuros_g])
+            self.memoria_particiones[key] = (emd, dist)
+
+            if emd < mejor_emd:
+                mejor_emd = emd
+                mejor_dist = dist
+                mejor_grupos = g_idx
+                mejor_key = key
+
+        self._tiempo_algoritmo = time.time() - self._tiempo_algoritmo
+        self.logger.info(f"  ✅ Búsqueda k={k} completada en {self._tiempo_algoritmo:.4f}s")
+        return mejor_key
+
+    def _kpartir(self, grupos, mecanismos):
+        subsistema = self.sia_subsistema
+        estado_inicial = subsistema.estado_inicial
+
+        nodo_info = {}
+        for g_idx, (grupo, mecanismo) in enumerate(zip(grupos, mecanismos)):
+            for nodo in grupo:
+                nodo_info[int(nodo)] = (g_idx, mecanismo)
+
+        n_ncubos = len(subsistema.ncubos)
+        resultado = np.empty(n_ncubos, dtype=np.float32)
+
+        for i, ncubo in enumerate(subsistema.ncubos):
+            idx_ncubo = int(ncubo.indice)
+            if idx_ncubo in nodo_info:
+                g_idx, mecanismo_grupo = nodo_info[idx_ncubo]
+                ejes = np.setdiff1d(ncubo.dims, mecanismo_grupo)
+            else:
+                ejes = np.array([], dtype=np.int8)
+
+            if ejes.size == 0:
+                sub_estado = tuple(estado_inicial[j] for j in ncubo.dims)
+                prob = float(ncubo.data[sum(
+                    (1 << j) * int(estado_inicial[j]) for j in ncubo.dims
+                )])
+            elif ejes.size == ncubo.dims.size:
+                prob = float(np.mean(ncubo.data))
+            else:
+                cubo_marg = ncubo.marginalizar(ejes)
+                if cubo_marg.dims.size == 0:
+                    prob = float(cubo_marg.data)
+                else:
+                    sub_estado = tuple(estado_inicial[j] for j in cubo_marg.dims)
+                    bits = sum((1 << j) * int(estado_inicial[j]) for j in cubo_marg.dims)
+                    prob = float(cubo_marg.data.ravel()[bits])
+
+            resultado[i] = 1.0 - prob
+
+        return resultado
+
+    def _formatear_kparticion(self, mip, k):
+        grupos = {}
+        for g_idx, nodo in mip:
+            grupos.setdefault(g_idx, []).append(nodo)
+        partes = []
+        for g in sorted(grupos):
+            letras = "".join(ABECEDARY[i] for i in grupos[g])
+            partes.append(f"G{g}: [{letras}]")
+        return " | ".join(partes)
+
+    def _fmt_parte(self, parte) -> str:
+        if isinstance(parte, tuple):
+            t, idx = parte
+            return ABECEDARY[idx] if t == 1 else ABECEDARY[idx].lower()
+        elif isinstance(parte, list):
+            return "+".join(self._fmt_parte(p) for p in parte)
+        return str(parte)
+
+    def _fmt_vertices(self, vertices_list) -> str:
+        return "[" + ", ".join(self._fmt_parte(v) for v in vertices_list) + "]"
+
     def algorithm(self, vertices: list[tuple[int, int]]):
-        """
-        Implementa el algoritmo Q para encontrar la partición óptima de un sistema que minimiza la pérdida de información, basándose en principios de submodularidad dentro de la teoría de lainformación.
+        self._tiempo_algoritmo = time.time()
+        self.logger.info("")
+        self.logger.info("─" * 50)
+        self.logger.info("  FASE 2: ALGORITMO Q — BÚSQUEDA DE PARTICIONES")
+        self.logger.info("─" * 50)
 
-        El algoritmo opera sobre un conjunto de vértices que representan nodos en diferentes tiempos del sistema (presente y futuro). La idea fundamental es construir incrementalmente grupos de nodos que, cuando se particionan, producen la menor pérdida posible de información en el sistema.
-
-        Proceso Principal:
-        -----------------
-        El algoritmo comienza estableciendo dos conjuntos fundamentales: omega (W) y delta.
-        Omega siempre inicia con el primer vértice del sistema, mientras que delta contiene todos los vértices restantes. Esta decisión no es arbitraria - al comenzar con un
-        solo elemento en omega, podemos construir grupos de manera incremental evaluando cómo cada adición afecta la pérdida de información.
-
-        La ejecución se desarrolla en fases, ciclos e iteraciones, donde cada fase representa un nivel diferente y conlleva a la formación de una partición candidata, cada ciclo representa un incremento de elementos al conjunto W y cada iteración determina al final cuál es el mejor elemento/cambio/delta para añadir en W.
-        Fase >> Ciclo >> Iteración.
-
-        1. Formación Incremental de Grupos:
-        El algoritmo mantiene un conjunto omega que crece gradualmente en cada j-iteración. En cada paso, evalúa todos los deltas restantes para encontrar cuál, al unirse con omega produce la menor pérdida de información. Este proceso utiliza la función submodular para calcular la diferencia entre la EMD (Earth Mover's Distance) de la combinación y la EMD individual del delta evaluado.
-
-        2. Evaluación de deltas:
-        Para cada delta candidato el algoritmo:
-        - Calcula su EMD individual si no está en memoria.
-        - Calcula la EMD de su combinación con el conjunto omega actual
-        - Determina la diferencia entre estas EMDs (el "costo" de la combinación)
-        El delta que produce el menor costo se selecciona y se añade a omega.
-
-        3. Formación de Nuevos Grupos:
-        Al final de cada fase cuando omega crezca lo suficiente, el algoritmo:
-        - Toma los últimos elementos de omega y delta (par candidato).
-        - Los combina en un nuevo grupo
-        - Actualiza la lista de vértices para la siguiente fase
-        Este proceso de agrupamiento permite que el algoritmo construya particiones
-        cada vez más complejas y reutilice estos "pares candidatos" para particiones en conjunto.
-
-        Optimización y Memoria:
-        ----------------------
-        El algoritmo utiliza dos estructuras de memoria clave:
-        - individual_memory: Almacena las EMDs y distribuciones de nodos individuales, evitando recálculos muy costosos.
-        - partition_memory: Guarda las EMDs y distribuciones de las particiones completas, permitiendo comparar diferentes combinaciones de grupos teniendo en cuenta que su valor real está asociado al valor individual de su formación delta.
-
-        La memoización es relevante puesto muchos cálculos de EMD son computacionalmente costosos y se repiten durante la ejecución del algoritmo.
-
-        Resultado:
-        ---------------
-        Al terminar todas las fases, el algoritmo selecciona la partición que produjo la menor EMD global, representando la división del sistema que mejor preserva su información causal.
-
-        Args:
-            vertices (list[tuple[int, int]]): Lista de vértices donde cada uno es una
-                tupla (tiempo, índice). tiempo=0 para presente (t_0), tiempo=1 para futuro (t_1).
-
-        Returns:
-            tuple[float, tuple[tuple[int, int], ...]]: El valor de pérdida en la primera posición, asociado con la partición óptima encontrada, identificada por la clave en partition_memory que produce la menor EMD.
-        """
         omegas_origen = np.array([vertices[0]])
         deltas_origen = np.array(vertices[1:])
 
@@ -220,43 +347,60 @@ class QNodes(SIA):
 
         total = len(vertices_fase) - 2
         for i in range(len(vertices_fase) - 2):
-            self.logger.debug(f"total: {total-i}")
+            self.logger.info(f"")
+            self.logger.info(f"  ═══ FASE {i+1}/{len(vertices_fase)-2} ═══")
             omegas_ciclo = [vertices_fase[0]]
             deltas_ciclo = vertices_fase[1:]
+            self.logger.info(f"  Ω inicial: {self._fmt_vertices(omegas_ciclo)}")
+            self.logger.info(f"  Δ restantes: {self._fmt_vertices(deltas_ciclo)}")
 
             emd_particion_candidata = INFTY_POS
+            dist_particion_candidata = None
 
             for j in range(len(deltas_ciclo) - 1):
-                # self.logger.critic(f"   {j=}")
                 emd_local = 1e5
                 indice_mip: int
 
+                self.logger.info(f"  ─── Ciclo {j+1}/{len(deltas_ciclo)-1} ───")
+
                 for k in range(len(deltas_ciclo)):
+                    delta_actual = deltas_ciclo[k]
+                    self.logger.info(f"    • Iteración: evaluando Δ_k = {self._fmt_parte(delta_actual)}")
+
                     emd_union, emd_delta, dist_marginal_delta = self.funcion_submodular(
-                        deltas_ciclo[k], omegas_ciclo
+                        delta_actual, omegas_ciclo
                     )
                     emd_iteracion = emd_union - emd_delta
+
+                    self.logger.info(f"        emd_union({self._fmt_parte(delta_actual)} ∪ Ω) = {emd_union:.6f}")
+                    self.logger.info(f"        emd_delta({self._fmt_parte(delta_actual)})           = {emd_delta:.6f}")
+                    self.logger.info(f"        diferencia (costo) = {emd_iteracion:.6f}")
 
                     if emd_iteracion < emd_local:
                         emd_local = emd_iteracion
                         indice_mip = k
+                        self.logger.info(f"        ← nuevo mínimo local")
 
                     emd_particion_candidata = emd_delta
                     dist_particion_candidata = dist_marginal_delta
-                    ...
-                # self.logger.critic(f"       [k]: {indice_mip}")
+
+                self.logger.info(f"    ✅ Seleccionado Δ_{indice_mip} = {self._fmt_parte(deltas_ciclo[indice_mip])} con diferencia={emd_local:.6f}")
 
                 omegas_ciclo.append(deltas_ciclo[indice_mip])
                 deltas_ciclo.pop(indice_mip)
-                ...
+                self.logger.info(f"    Ω actualizado: {self._fmt_vertices(omegas_ciclo)}")
+                self.logger.info(f"    Δ restantes:   {self._fmt_vertices(deltas_ciclo)}")
 
-            self.memoria_particiones[
-                tuple(
-                    deltas_ciclo[LAST_IDX]
-                    if isinstance(deltas_ciclo[LAST_IDX], list)
-                    else deltas_ciclo
-                )
-            ] = emd_particion_candidata, dist_particion_candidata
+            # Guardar partición candidata de esta fase
+            clave_particion = tuple(
+                deltas_ciclo[LAST_IDX]
+                if isinstance(deltas_ciclo[LAST_IDX], list)
+                else deltas_ciclo
+            )
+            self.memoria_particiones[clave_particion] = emd_particion_candidata, dist_particion_candidata
+            self.logger.info(f"  📦 Grupo candidato generado: {self._fmt_vertices(list(clave_particion))}")
+            self.logger.info(f"  📊 EMD del grupo candidato: {emd_particion_candidata:.6f}")
+            self._candidatos_log.append((f"Fase {i+1} {self._fmt_vertices(list(clave_particion))}", emd_particion_candidata))
 
             par_candidato = (
                 [omegas_ciclo[LAST_IDX]]
@@ -272,57 +416,27 @@ class QNodes(SIA):
             omegas_ciclo.append(par_candidato)
 
             vertices_fase = omegas_ciclo
-            ...
+            self.logger.info(f"  ➡ Vértices para siguiente fase: {self._fmt_vertices(vertices_fase)}")
+
+        self._tiempo_algoritmo = time.time() - self._tiempo_algoritmo
+        self.logger.info(f"  ✅ Algoritmo Q completado en {self._tiempo_algoritmo:.4f}s")
 
         return min(
             self.memoria_particiones, key=lambda k: self.memoria_particiones[k][0]
         )
 
+    def _fmt_dims(self, dims_list) -> str:
+        return ",".join(ABECEDARY[d] for d in sorted(dims_list)) if dims_list else "∅"
+
     def funcion_submodular(
         self, deltas: Union[tuple, list[tuple]], omegas: list[Union[tuple, list[tuple]]]
     ):
-        """
-        Evalúa el impacto de combinar el conjunto de nodos individual delta y su agrupación con el conjunto omega, calculando la diferencia entre EMD (Earth Mover's Distance) de las configuraciones, en conclusión los nodos delta evaluados individualmente y su combinación con el conjunto omega.
-
-        El proceso se realiza en dos fases principales:
-
-        1. Evaluación Individual:
-           - Crea una copia del estado temporal del subsistema.
-           - Activa los nodos delta en su tiempo correspondiente (presente/futuro).
-           - Si el delta ya fue evaluado antes, recupera su EMD y distribución marginal de memoria
-           - Si no, ha de:
-             * Identificar dimensiones activas en presente y futuro.
-             * Realiza bipartición del subsistema con esas dimensiones.
-             * Calcular la distribución marginal y EMD respecto al subsistema.
-             * Guarda resultados en memoria para seguro un uso futuro.
-
-        2. Evaluación Combinada:
-           - Sobre la misma copia temporal, activa también los nodos omega.
-           - Calcula dimensiones activas totales (delta + omega).
-           - Realiza bipartición del subsistema completo.
-           - Obtiene EMD de la combinación.
-
-        Args:
-            deltas: Un nodo individual (tupla) o grupo de nodos (lista de tuplas)
-                   donde cada tupla está identificada por su (tiempo, índice), sea el tiempo t_0 identificado como 0, t_1 como 1 y, el índice hace referencia a las variables/dimensiones habilitadas para operaciones de substracción/marginalización sobre el subsistema, tal que genere la partición.
-            omegas: Lista de nodos ya agrupados, puede contener tuplas individuales
-                   o listas de tuplas para grupos formados por los pares candidatos o más uniones entre sí (grupos candidatos).
-
-        Returns:
-            tuple: (
-                EMD de la combinación omega y delta,
-                EMD del delta individual,
-                Distribución marginal del delta individual
-            )
-            Esto lo hice así para hacer almacenamiento externo de la emd individual y su distribución marginal en las particiones candidatas.
-        """
         emd_delta = INFTY_NEG
         temporal = [[], []]
 
         if isinstance(deltas, tuple):
             d_tiempo, d_indice = deltas
             temporal[d_tiempo].append(d_indice)
-
         else:
             for delta in deltas:
                 d_tiempo, d_indice = delta
@@ -333,15 +447,23 @@ class QNodes(SIA):
         dims_alcance_delta = temporal[EFECTO]
         dims_mecanismo_delta = temporal[ACTUAL]
 
+        alcance_str = self._fmt_dims(dims_alcance_delta)
+        mecanismo_str = self._fmt_dims(dims_mecanismo_delta)
+        self.logger.info(f"        ┌─ Evaluación individual (Δ)")
+        self.logger.info(f"        │  alcance (marginalizar fuera): {alcance_str}")
+        self.logger.info(f"        │  mecanismo (marginalizar en):  {mecanismo_str}")
+
         particion_delta = copia_delta.bipartir(
             np.array(dims_alcance_delta, dtype=np.int8),
             np.array(dims_mecanismo_delta, dtype=np.int8),
         )
         vector_delta_marginal = particion_delta.distribucion_marginal()
         emd_delta = emd_efecto(vector_delta_marginal, self.sia_dists_marginales)
+        self.logger.info(f"        │  dist marginal: {np.array2string(vector_delta_marginal, precision=4)}")
+        self.logger.info(f"        │  EMD = {emd_delta:.6f}")
+        self.logger.info(f"        └─")
 
         # Unión #
-
         for omega in omegas:
             if isinstance(omega, list):
                 for omg in omega:
@@ -356,12 +478,21 @@ class QNodes(SIA):
         dims_alcance_union = temporal[EFECTO]
         dims_mecanismo_union = temporal[ACTUAL]
 
+        alcance_u_str = self._fmt_dims(dims_alcance_union)
+        mecanismo_u_str = self._fmt_dims(dims_mecanismo_union)
+        self.logger.info(f"        ┌─ Evaluación combinada (Δ ∪ Ω)")
+        self.logger.info(f"        │  alcance (marginalizar fuera): {alcance_u_str}")
+        self.logger.info(f"        │  mecanismo (marginalizar en):  {mecanismo_u_str}")
+
         particion_union = copia_union.bipartir(
             np.array(dims_alcance_union, dtype=np.int8),
             np.array(dims_mecanismo_union, dtype=np.int8),
         )
         vector_union_marginal = particion_union.distribucion_marginal()
         emd_union = emd_efecto(vector_union_marginal, self.sia_dists_marginales)
+        self.logger.info(f"        │  dist marginal: {np.array2string(vector_union_marginal, precision=4)}")
+        self.logger.info(f"        │  EMD = {emd_union:.6f}")
+        self.logger.info(f"        └─")
 
         return emd_union, emd_delta, vector_delta_marginal
 

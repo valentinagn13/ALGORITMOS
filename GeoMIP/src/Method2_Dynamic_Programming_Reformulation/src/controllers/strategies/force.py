@@ -69,7 +69,7 @@ class BruteForce(SIA):
     @profile(
         context={TYPE_TAG: BRUTEFORCE_ANALYSIS_TAG}
     )  # Descomentame y revisa el directorio `review/profiling/`! #
-    def aplicar_estrategia(self, condiciones: str, alcance: str, mecanismo: str):
+    def aplicar_estrategia(self, condiciones: str, alcance: str, mecanismo: str, k: int = 2):
         """
         Análisis por fuerza brutal sobre una red específica para un sistema candidato llevado a un subsistema determinado por el alcance y mecanismo indicado por el usuario.
 
@@ -78,11 +78,16 @@ class BruteForce(SIA):
             conditions (str): Condiciones de fondo, dónde se va a condicionar el sistema original como candidato, sean las dimensiones en 0 las que se condicionen.
             alcance (str): Elementos futuros que serán marginalizados si el bit está en cero (0) para la posición de la variable asociada.
             mecanismo (str): Elementos presentes que serán marginalizados si su bit asociado en cero (0) para la posición de la variable.
+            k (int): Número de particiones. Solo k=2 está soportado (fuerza bruta).
 
-        Returns:
-        -------
-            None: El análisis como se aprecia puede ser medido mediante el decorador de profiling, así como si se desea para algún otro método.
+        Raises:
+            ValueError: Si k != 2.
         """
+        if k != 2:
+            raise ValueError(
+                f"BruteForce solo soporta k=2 (biparticiones). "
+                f"Usa GeometricSIA para k={k}. Recibido k={k}."
+            )
         self.sia_preparar_subsistema(condiciones, alcance, mecanismo)
 
         solucion_base = Solution(

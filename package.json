@@ -1,0 +1,26 @@
+{
+  "name": "projecto-analisis-20261",
+  "version": "1.0.0",
+  "description": "Este repositorio contiene tres implementaciones principales para el analisis de MIP/IIT:",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/valegn/ALGORITMOS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/valegn/ALGORITMOS/issues"
+  },
+  "homepage": "https://github.com/valegn/ALGORITMOS#readme",
+  "devDependencies": {
+    "opencode-ai": "^1.17.3"
+  }
+}

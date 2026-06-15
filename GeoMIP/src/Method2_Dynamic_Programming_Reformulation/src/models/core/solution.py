@@ -13,6 +13,18 @@ from src.models.base.application import aplicacion
 init()
 
 
+def _formatear_tiempo(segundos: float) -> str:
+    h = int(segundos // 3600)
+    m = int((segundos % 3600) // 60)
+    s = segundos % 60
+    if h > 0:
+        return f"{h}h {m}m {s:.2f}s"
+    elif m > 0:
+        return f"{m}m {s:.2f}s"
+    else:
+        return f"{s:.4f}s"
+
+
 class Solution:
     """
     Clase Solution para representar y visualizar soluciones del sistema IIT.
@@ -103,6 +115,7 @@ class Solution:
         tiempo_total: float = FLOAT_ZERO,
         hablar: bool = True,
         voz: Optional[str] = None,
+        tiempos_parciales: Optional[dict[str, float]] = None,
     ) -> None:
         """
         Inicializa una nueva instancia de Solution.
@@ -114,6 +127,7 @@ class Solution:
         self.distribucion_particion = distribucion_particion
         self.particion = particion
         self.tiempo_ejecucion = tiempo_total
+        self.tiempos_parciales = tiempos_parciales or {}
         self.id_voz = voz
         self.hablar = hablar
 
@@ -207,12 +221,13 @@ class Solution:
 
         Returns:
         -------
-            str:
-                Representación visual de la solución que incluye:
-                - Valor φ en verdecito
-                - Distribuciones del subsistema y partición
-                - Mejor partición encontrada en magenta
-                - Elementos decorativos en cyan
+        str:
+            Representación visual de la solución que incluye:
+            - Valor φ en verdecito
+            - Distribuciones del subsistema y partición
+            - Mejor partición encontrada en magenta
+            - Elementos decorativos en cyan
+            - Tiempos parciales detallados
 
         Notes:
         -----
@@ -249,11 +264,24 @@ class Solution:
         es_pyphi = self.estrategia == "Pyphi"
         tipo_distribucion = "" if es_pyphi else "marginal"
 
+        # ── Tiempos ──
         tiempo_h, tiempo_m, tiempo_s = (
             f"{self.tiempo_ejecucion/3600:.2f}",
             f"{self.tiempo_ejecucion/60:.1f}",
             f"{self.tiempo_ejecucion:.4f}",
         )
+
+        # ── Tiempos parciales ──
+        parciales_str = ""
+        if self.tiempos_parciales:
+            lineas = []
+            for fase, t in self.tiempos_parciales.items():
+                lineas.append(f"{fase}: {_formatear_tiempo(t)}")
+            parciales_str = "\n".join(
+                f"    {Fore.WHITE}{l}" for l in lineas
+            )
+            parciales_str = f"\n{Fore.BLUE}Tiempos parciales:\n{parciales_str}"
+
         return f"""{Fore.CYAN}{bilinea}
 
 {Fore.RED}{self.estrategia} fue la estrategia de solucion.
@@ -273,7 +301,7 @@ class Solution:
 {Fore.GREEN}Perdida mínima ( φ ) = {self.perdida:.4f}
 
 {Fore.BLUE}Tiempos de ejecución:
-{Fore.WHITE}Horas: {tiempo_h} = Minutos: {tiempo_m} = Segundos: {tiempo_s}
+{Fore.WHITE}Horas: {tiempo_h} = Minutos: {tiempo_m} = Segundos: {tiempo_s}{parciales_str}
 
 {Fore.CYAN}{trilinea}{Style.RESET_ALL}"""
 

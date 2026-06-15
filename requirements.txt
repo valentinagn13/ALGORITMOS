@@ -1,0 +1,22 @@
+# ============================================================
+# REQUERIMIENTOS DEL PROYECTO - Análisis de MIP/IIT
+# ============================================================
+# Para instalar: pip install -r requirements.txt
+# O con uv: uv pip install -r requirements.txt
+# ============================================================
+
+# Dependencias de QNodes
+numpy>=1.26.4
+scipy>=1.17.0
+pyphi>=1.2.0
+pyinstrument>=5.1.2
+pandas>=2.3.3
+openpyxl>=3.1.5
+pyttsx3>=2.99
+colorama>=0.4.6
+
+# Dependencias de GeoMIP / Method2
+# (reutiliza las de arriba; no hay extras)
+
+# Gestor de paquetes uv (opcional, pero recomendado)
+uv>=0.6
