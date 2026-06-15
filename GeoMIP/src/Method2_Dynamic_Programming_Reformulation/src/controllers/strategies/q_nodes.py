@@ -351,8 +351,6 @@ class QNodes(SIA):
             self.logger.info(f"  ═══ FASE {i+1}/{len(vertices_fase)-2} ═══")
             omegas_ciclo = [vertices_fase[0]]
             deltas_ciclo = vertices_fase[1:]
-            self.logger.info(f"  Ω inicial: {self._fmt_vertices(omegas_ciclo)}")
-            self.logger.info(f"  Δ restantes: {self._fmt_vertices(deltas_ciclo)}")
 
             emd_particion_candidata = INFTY_POS
             dist_particion_candidata = None
@@ -361,35 +359,25 @@ class QNodes(SIA):
                 emd_local = 1e5
                 indice_mip: int
 
-                self.logger.info(f"  ─── Ciclo {j+1}/{len(deltas_ciclo)-1} ───")
-
                 for k in range(len(deltas_ciclo)):
                     delta_actual = deltas_ciclo[k]
-                    self.logger.info(f"    • Iteración: evaluando Δ_k = {self._fmt_parte(delta_actual)}")
 
                     emd_union, emd_delta, dist_marginal_delta = self.funcion_submodular(
                         delta_actual, omegas_ciclo
                     )
                     emd_iteracion = emd_union - emd_delta
 
-                    self.logger.info(f"        emd_union({self._fmt_parte(delta_actual)} ∪ Ω) = {emd_union:.6f}")
-                    self.logger.info(f"        emd_delta({self._fmt_parte(delta_actual)})           = {emd_delta:.6f}")
-                    self.logger.info(f"        diferencia (costo) = {emd_iteracion:.6f}")
-
                     if emd_iteracion < emd_local:
                         emd_local = emd_iteracion
                         indice_mip = k
-                        self.logger.info(f"        ← nuevo mínimo local")
 
                     emd_particion_candidata = emd_delta
                     dist_particion_candidata = dist_marginal_delta
 
-                self.logger.info(f"    ✅ Seleccionado Δ_{indice_mip} = {self._fmt_parte(deltas_ciclo[indice_mip])} con diferencia={emd_local:.6f}")
+                self.logger.debug(f"    ✅ Seleccionado Δ_{indice_mip} = {self._fmt_parte(deltas_ciclo[indice_mip])} con diferencia={emd_local:.6f}")
 
                 omegas_ciclo.append(deltas_ciclo[indice_mip])
                 deltas_ciclo.pop(indice_mip)
-                self.logger.info(f"    Ω actualizado: {self._fmt_vertices(omegas_ciclo)}")
-                self.logger.info(f"    Δ restantes:   {self._fmt_vertices(deltas_ciclo)}")
 
             # Guardar partición candidata de esta fase
             clave_particion = tuple(
@@ -398,8 +386,7 @@ class QNodes(SIA):
                 else deltas_ciclo
             )
             self.memoria_particiones[clave_particion] = emd_particion_candidata, dist_particion_candidata
-            self.logger.info(f"  📦 Grupo candidato generado: {self._fmt_vertices(list(clave_particion))}")
-            self.logger.info(f"  📊 EMD del grupo candidato: {emd_particion_candidata:.6f}")
+            self.logger.info(f"  📦 Grupo candidato generado: {self._fmt_vertices(list(clave_particion))}  EMD={emd_particion_candidata:.6f}")
             self._candidatos_log.append((f"Fase {i+1} {self._fmt_vertices(list(clave_particion))}", emd_particion_candidata))
 
             par_candidato = (
@@ -416,7 +403,6 @@ class QNodes(SIA):
             omegas_ciclo.append(par_candidato)
 
             vertices_fase = omegas_ciclo
-            self.logger.info(f"  ➡ Vértices para siguiente fase: {self._fmt_vertices(vertices_fase)}")
 
         self._tiempo_algoritmo = time.time() - self._tiempo_algoritmo
         self.logger.info(f"  ✅ Algoritmo Q completado en {self._tiempo_algoritmo:.4f}s")
@@ -447,21 +433,12 @@ class QNodes(SIA):
         dims_alcance_delta = temporal[EFECTO]
         dims_mecanismo_delta = temporal[ACTUAL]
 
-        alcance_str = self._fmt_dims(dims_alcance_delta)
-        mecanismo_str = self._fmt_dims(dims_mecanismo_delta)
-        self.logger.info(f"        ┌─ Evaluación individual (Δ)")
-        self.logger.info(f"        │  alcance (marginalizar fuera): {alcance_str}")
-        self.logger.info(f"        │  mecanismo (marginalizar en):  {mecanismo_str}")
-
         particion_delta = copia_delta.bipartir(
             np.array(dims_alcance_delta, dtype=np.int8),
             np.array(dims_mecanismo_delta, dtype=np.int8),
         )
         vector_delta_marginal = particion_delta.distribucion_marginal()
         emd_delta = emd_efecto(vector_delta_marginal, self.sia_dists_marginales)
-        self.logger.info(f"        │  dist marginal: {np.array2string(vector_delta_marginal, precision=4)}")
-        self.logger.info(f"        │  EMD = {emd_delta:.6f}")
-        self.logger.info(f"        └─")
 
         # Unión #
         for omega in omegas:
@@ -478,21 +455,12 @@ class QNodes(SIA):
         dims_alcance_union = temporal[EFECTO]
         dims_mecanismo_union = temporal[ACTUAL]
 
-        alcance_u_str = self._fmt_dims(dims_alcance_union)
-        mecanismo_u_str = self._fmt_dims(dims_mecanismo_union)
-        self.logger.info(f"        ┌─ Evaluación combinada (Δ ∪ Ω)")
-        self.logger.info(f"        │  alcance (marginalizar fuera): {alcance_u_str}")
-        self.logger.info(f"        │  mecanismo (marginalizar en):  {mecanismo_u_str}")
-
         particion_union = copia_union.bipartir(
             np.array(dims_alcance_union, dtype=np.int8),
             np.array(dims_mecanismo_union, dtype=np.int8),
         )
         vector_union_marginal = particion_union.distribucion_marginal()
         emd_union = emd_efecto(vector_union_marginal, self.sia_dists_marginales)
-        self.logger.info(f"        │  dist marginal: {np.array2string(vector_union_marginal, precision=4)}")
-        self.logger.info(f"        │  EMD = {emd_union:.6f}")
-        self.logger.info(f"        └─")
 
         return emd_union, emd_delta, vector_delta_marginal
 

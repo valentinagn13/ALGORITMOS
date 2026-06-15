@@ -115,9 +115,7 @@ class SafeLogger:
 
         # Handler para consola
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(
-            logging.DEBUG
-        )  # Cambiado a DEBUG para ver todos los mensajes
+        console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(colored_formatter)
 
         logger.addHandler(detailed_file_handler)

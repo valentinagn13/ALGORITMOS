@@ -4,7 +4,12 @@ import threading
 from pathlib import Path
 from tkinter import *
 from tkinter import ttk, scrolledtext
+import re
 
+def clean_ansi(text: str) -> str:
+    """Elimina códigos de escape ANSI de la cadena."""
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', text)
 ROOT = Path(__file__).resolve().parent
 
 STRATEGIES_QNODES = ["BruteForce", "QNodes", "Phi"]
@@ -54,7 +59,7 @@ class App:
             return e
 
         row = 0
-        self.estado_inicial = campo("Estado inicial (binario):", "1000")
+        self.estado_inicial = campo("Estado inicial (binario):", "100000000000000")
         self.condiciones = campo("Condiciones (binario):", "1110")
         self.alcance = campo("Alcance (binario):", "1110")
         self.mecanismo = campo("Mecanismo (binario):", "1110")
@@ -224,8 +229,7 @@ class App:
             )
             self._log(str(resultado))
         finally:
-            os.chdir(old_cwd)
-
+                os.chdir(old_cwd)
     def _run_geomip(self, estado, pagina, estrategia_nombre):
         method2_root = ROOT / "GeoMIP" / "src" / "Method2_Dynamic_Programming_Reformulation"
         old_cwd = Path.cwd()
@@ -234,7 +238,6 @@ class App:
 
         try:
             from src.models.base.application import aplicacion
-
             aplicacion.pagina_sample_network = pagina
 
             alcance_l = self.alcance_letras.get().strip().upper()
@@ -245,7 +248,6 @@ class App:
                 k = 2
 
             from cli import _letras_a_binario
-
             n = len(estado)
             alcance_bin = _letras_a_binario(alcance_l, n)
             mecanismo_bin = _letras_a_binario(mecanismo_l, n)
@@ -261,7 +263,6 @@ class App:
             self._log(f"  ─────────────────────────────────────────")
 
             from src.controllers.manager import Manager
-
             gestor = Manager(estado)
             ruta_tpm = gestor.tpm_filename
             self._log(f"  Cargando TPM: {ruta_tpm}")
@@ -282,7 +283,53 @@ class App:
                 condicion=condicion, alcance=alcance_bin,
                 mecanismo=mecanismo_bin, tpm=tpm, k=k,
             )
-            self._log(str(resultado))
+            # resultado es una cadena con colores ANSI
+            texto_limpio = clean_ansi(str(resultado))
+            self._log(texto_limpio)  # ya está limpio
+
+            # --- Extracción de datos para CSV ---
+            particion = ""
+            perdida = ""
+            tiempo = ""
+
+            # Buscar la línea de partición (ej: "G0: [BFG] | G1: [CEI] | G2: [AJ] | G3: [DH]")
+            for line in texto_limpio.splitlines():
+                if "G0:" in line and "G1:" in line and "G2:" in line:
+                    # Tomamos toda la línea, pero quitamos posibles prefijos como "Mejor Bi-Partición:"
+                    if "Mejor" in line:
+                        particion = line.split("Mejor Bi-Partición:")[-1].strip()
+                    else:
+                        particion = line.strip()
+                if "Perdida mínima" in line or "φ" in line:
+                    # Busca un número flotante
+                    import re
+                    match = re.search(r"([0-9]+\.[0-9]+)", line)
+                    if match:
+                        perdida = match.group(1)
+                if "Segundos:" in line:
+                    # Extrae el valor después de "Segundos:"
+                    parts = line.split("Segundos:")
+                    if len(parts) > 1:
+                        tiempo = parts[1].strip().split()[0]  # toma el primer número
+
+            # Si no encontró tiempo, buscar "Tiempos de ejecución:" y la siguiente línea
+            if not tiempo:
+                for i, line in enumerate(texto_limpio.splitlines()):
+                    if "Tiempos de ejecución:" in line and i+1 < len(texto_limpio.splitlines()):
+                        next_line = texto_limpio.splitlines()[i+1]
+                        if "Segundos:" in next_line:
+                            parts = next_line.split("Segundos:")
+                            if len(parts) > 1:
+                                tiempo = parts[1].strip().split()[0]
+                        break
+
+            # Mostrar los tres valores al final, en formato CSV
+            csv_line = f"{particion}, {perdida}, {tiempo}"
+            self._log("\n" + "="*50)
+            self._log("📋 DATOS PARA EXCEL (copiar esta línea):")
+            self._log(csv_line)
+            self._log("="*50)
+
         finally:
             os.chdir(old_cwd)
 

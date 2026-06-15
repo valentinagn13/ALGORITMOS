@@ -190,19 +190,11 @@ class GeometricSIA(SIA):
         for nivel in range(1, len(estado_inicial) + 1):
             self.calcular_costos_nivel(estado_final, nivel)
 
-        # Mostrar todos los caminos por nivel
+        # Mostrar resumen de caminos por nivel
         for nivel, estados in self.caminos.items():
-            self.logger.info(f"  • Nivel {nivel}: {len(estados)} estados")
-            for e in estados:
-                self.logger.info(f"      {e}")
+            self.logger.debug(f"  • Nivel {nivel}: {len(estados)} estados")
 
-        # Mostrar matriz de costos T(i,j)
-        self.logger.info("")
-        self.logger.info("  Matriz de costos T(i,j) — transiciones:")
-        for (e_i, e_j), costos in sorted(self.tabla_transiciones.items()):
-            dH = self.hamming(e_i, e_j)
-            gamma = 1.0 / (2 ** dH)
-            self.logger.info(f"    T({''.join(map(str,e_i))}→{''.join(map(str,e_j))})  γ=1/2^{dH}={gamma:.4f}  costos={[f'{c:.4f}' for c in costos]}")
+        self.logger.info(f"  • Transiciones en tabla: {len(self.tabla_transiciones)}")
 
         self._tiempo_hipercubo = time.time() - self._tiempo_hipercubo
         self.logger.info(f"  ✅ Hipercubo construido en {self._tiempo_hipercubo:.4f}s")
@@ -230,7 +222,6 @@ class GeometricSIA(SIA):
                 # ── Mostrar candidato ──
                 futuros_letras = "".join(ABECEDARY[i] for i in futuros_glob)
                 presentes_letras = "".join(ABECEDARY[i] for i in presentes_glob)
-                self.logger.info(f"  • Candidato #{idx_c+1}: futuro=[{futuros_letras}] presente=[{presentes_letras}]")
 
                 grupos_glob = [futuros_glob]
                 mecanismos_glob = [presentes_glob]
@@ -238,14 +229,11 @@ class GeometricSIA(SIA):
                 todos_futuros = indices_ncubos
                 futuros_complemento = np.setdiff1d(todos_futuros, futuros_glob)
                 if futuros_complemento.size > 0:
-                    futuros_comp_letras = "".join(ABECEDARY[i] for i in futuros_complemento)
-                    self.logger.info(f"       Complemento (fuera): [{futuros_comp_letras}]")
                     grupos_glob.append(futuros_complemento)
                     mecanismos_glob.append(presentes_glob)
 
                 dist = self.kpartir(grupos_glob, mecanismos_glob)
                 emd = emd_efecto(dist, self.sia_dists_marginales)
-                self.logger.info(f"       → φ = {emd:.6f}")
 
                 key = tuple([(0, nodo) for nodo in presentes_glob] +
                              [(1, nodo) for nodo in futuros_glob])
@@ -268,14 +256,10 @@ class GeometricSIA(SIA):
                     mecanismos_glob.append(presentes_g)
                     key_parts.extend([(g_idx, int(n)) for n in futuros_g])
                     g_letras = "".join(ABECEDARY[i] for i in futuros_g) if futuros_g.size > 0 else "∅"
-                    p_letras = "".join(ABECEDARY[i] for i in presentes_g) if presentes_g.size > 0 else "∅"
-                    grupos_letras.append(f"{g_letras}({p_letras})")
-
-                self.logger.info(f"  • Candidato #{idx_c+1}: grupos = {grupos_letras}")
+                    grupos_letras.append(g_letras)
 
                 dist = self.kpartir(grupos_glob, mecanismos_glob)
                 emd = emd_efecto(dist, self.sia_dists_marginales)
-                self.logger.info(f"       → φ = {emd:.6f}")
 
                 key = tuple(key_parts)
                 self.memoria_particiones[key] = (emd, dist)
@@ -388,17 +372,11 @@ class GeometricSIA(SIA):
             resultado[i] = 1.0 - prob
 
             letra = ABECEDARY[idx_ncubo] if idx_ncubo < len(ABECEDARY) else f"?{idx_ncubo}"
-            if ejes.size == 0:
-                ejes_str = "∅ (sin marginalizar)"
-            elif ejes.size == ncubo.dims.size:
-                ejes_str = "TODOS (media global)"
-            else:
-                ejes_str = ",".join(ABECEDARY[int(e)] for e in ejes)
-            self.logger.info(f"       NCubo {letra}({idx_ncubo}) → grupo={grupo_str}  marginaliza={ejes_str}  P(ON)={prob:.4f}  dist={1.0-prob:.4f}")
+            self.logger.debug(f"       NCubo {letra}({idx_ncubo}) → grupo={grupo_str}  P(ON)={prob:.4f}  dist={1.0-prob:.4f}")
 
         emd_parcial = emd_efecto(resultado, self.sia_dists_marginales)
-        self.logger.info(f"       Distribución resultante: {np.array2string(resultado, precision=4)}")
-        self.logger.info(f"       EMD parcial: {emd_parcial:.6f}")
+        self.logger.debug(f"       Distribución resultante: {np.array2string(resultado, precision=4)}")
+        self.logger.debug(f"       EMD parcial: {emd_parcial:.6f}")
         return resultado
 
     def _marginalizar_e_indexar(
@@ -512,19 +490,15 @@ class GeometricSIA(SIA):
 
         if k == 2:
             self.logger.info("")
-            self.logger.info("  • Candidatos k=2 — one-removed (nivel 0):")
+            self.logger.info(f"  • Candidatos k=2 — one-removed (n_vars={n_vars}) + niveles intermedios ({len(self.caminos)//2} niveles)")
             for idx in range(n_vars):
                 presentes = list(range(len(self.estado_final)))
                 futuros = [i for i in range(n_vars) if i != idx]
-                futuros_letras = "".join(ABECEDARY[i] for i in futuros)
-                excluida = ABECEDARY[idx]
-                self.logger.info(f"      Excluir {excluida}({idx}) → fut=[{futuros_letras}]  costo={costos[idx]:.4f}")
                 candidatos.append([presentes, futuros])
 
             es_par = len(self.caminos) % 2 == 0
             mitad = len(self.caminos) // 2 if es_par else (len(self.caminos) // 2) + 1
 
-            self.logger.info(f"  • Candidatos k=2 — niveles intermedios del hipercubo (1..{mitad-1}):")
             for nivel in range(1, mitad):
                 costo_candidato_nivel = 1e5
                 presentes_nivel, futuros_nivel = [], []
@@ -553,26 +527,17 @@ class GeometricSIA(SIA):
                         presentes_nivel = presentes
                         futuros_nivel = futuros
 
-                futuros_letras = "".join(ABECEDARY[i] for i in futuros_nivel)
-                self.logger.info(f"      Nivel {nivel}: fut=[{futuros_letras}]  costo={costo_candidato_nivel:.4f}")
                 candidatos.append([presentes_nivel, futuros_nivel])
 
         else:
             self.logger.info(f"")
-            self.logger.info(f"  • Candidatos k={k} — round-robin por costo:")
+            self.logger.info(f"  • Candidatos k={k} — round-robin por costo ({n_vars} vars, {len(self.caminos)//2} niveles)")
             costos_arr = np.array(costos, dtype=np.float64)
             orden = np.argsort(costos_arr)
-
-            vars_con_costo = [(ABECEDARY[int(v)], costos_arr[v]) for v in orden]
-            self.logger.info(f"      Variables ordenadas por costo: {vars_con_costo}")
 
             grupos_base = [[] for _ in range(k)]
             for pos, var_idx in enumerate(orden):
                 grupos_base[pos % k].append(int(var_idx))
-
-            grupos_str = [",".join(ABECEDARY[i] for i in g) for g in grupos_base]
-            round_robin_str = " → ".join(f"G{g}: [{grp}]" for g, grp in enumerate(grupos_str))
-            self.logger.info(f"      Asignación round-robin: {round_robin_str}")
             candidatos.append(grupos_base)
 
             es_par = len(self.caminos) % 2 == 0
@@ -602,9 +567,6 @@ class GeometricSIA(SIA):
                         mejor_grupos = grupos_nivel
 
                 if mejor_grupos is not None:
-                    grupos_str = [",".join(ABECEDARY[i] for i in g) for g in mejor_grupos]
-                    rr_str = " → ".join(f"G{g}: [{grp}]" for g, grp in enumerate(grupos_str))
-                    self.logger.info(f"      Nivel {nivel}: {rr_str}  costo={mejor_costo:.4f}")
                     candidatos.append(mejor_grupos)
 
         return candidatos
@@ -761,8 +723,8 @@ class GeometricSIA(SIA):
 
             T *= self.sa_alpha
 
-            if n_iter % 500 == 0:
-                self.logger.info(f"     iter {n_iter:5d}  T={T:.6f}  actual_φ={actual_phi:.6f}  mejor_φ={mejor_phi:.6f}")
+            if n_iter % 1000 == 0:
+                self.logger.debug(f"     iter {n_iter:5d}  T={T:.6f}  actual_φ={actual_phi:.6f}  mejor_φ={mejor_phi:.6f}")
 
         t_total = time.time() - t_start
         self._tiempo_sa += t_total
