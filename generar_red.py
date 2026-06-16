@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-geo_src = Path("GeoMIP/src/Method2_Dynamic_Programming_Reformulation").absolute()
+geo_src = Path("kGeoMip/src/Method2_Dynamic_Programming_Reformulation").absolute()
 sys.path.insert(0, str(geo_src))
 
 from src.controllers.manager import Manager

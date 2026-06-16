@@ -13,7 +13,7 @@ from pathlib import Path
 
 # Añadir rutas necesarias para importar los módulos del proyecto
 ROOT = Path(__file__).resolve().parent
-METHOD2_ROOT = ROOT / "GeoMIP" / "src" / "Method2_Dynamic_Programming_Reformulation"
+METHOD2_ROOT = ROOT / "kGeoMip" / "src" / "Method2_Dynamic_Programming_Reformulation"
 sys.path.insert(0, str(METHOD2_ROOT))
 
 # Importar funciones y clases necesarias
@@ -120,65 +120,24 @@ def main():
 
     k = int(sys.argv[1]) if len(sys.argv) > 1 else 5
 
-    estado = "1000000000000000000000"
+    estado = "1000000000"
     pruebas = [
-        # ("ABCDEFGHIJKLMNOPQRSTUV", "ABCDEFGHIJKLMNOPQRSTUV"),  # 1
-        # ("ABCDEFGHIJKLMNOPQRSTUV", "ABCDEFGHIJKLMNOPQRSTU"),   # 2
-        # ("ABCDEFGHIJKLMNOPQRSTUV", "BCDEFGHIJKLMNOPQRSTUV"),   # 3
-        # ("ABCDEFGHIJKLMNOPQRSTUV", "BCDEFGHIJKLMNOPQRSTU"),    # 4
-        # ("ABCDEFGHIJKLMNOPQRSTUV", "ABDEGHJKMNPQSTV"),         # 5
-        # ("ABCDEFGHIJKLMNOPQRSTUV", "ACEGIKMOQSU"),             # 6
-        ("ABCDEFGHIJKLMNOPQRSTUV", "BDFHJLNPRTV"),             # 7
-        ("ABCDEFGHIJKLMNOPQRSTU",  "ABCDEFGHIJKLMNOPQRSTUV"),  # 8
-        ("ABCDEFGHIJKLMNOPQRSTU",  "ABCDEFGHIJKLMNOPQRSTU"),   # 9
-        ("ABCDEFGHIJKLMNOPQRSTU",  "BCDEFGHIJKLMNOPQRSTUV"),   # 10
-        # ("ABCDEFGHIJKLMNOPQRSTU",  "BCDEFGHIJKLMNOPQRSTU"),    # 11
-        # ("ABCDEFGHIJKLMNOPQRSTU",  "ABDEGHJKMNPQSTV"),         # 12
-        # ("ABCDEFGHIJKLMNOPQRSTU",  "ACEGIKMOQSU"),             # 13
-        # ("ABCDEFGHIJKLMNOPQRSTU",  "BDFHJLNPRTV"),             # 14
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "ABCDEFGHIJKLMNOPQRSTUV"),  # 15
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "ABCDEFGHIJKLMNOPQRSTU"),   # 16
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "BCDEFGHIJKLMNOPQRSTUV"),   # 17
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "BCDEFGHIJKLMNOPQRSTU"),    # 18
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "ABDEGHJKMNPQSTV"),         # 19
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "ACEGIKMOQSU"),             # 20
-        # ("BCDEFGHIJKLMNOPQRSTUV",  "BDFHJLNPRTV"),             # 21
-        # ("BCDEFGHIJKLMNOPQRSTU",   "ABCDEFGHIJKLMNOPQRSTUV"),  # 22
-        # ("BCDEFGHIJKLMNOPQRSTU",   "ABCDEFGHIJKLMNOPQRSTU"),   # 23
-        # ("BCDEFGHIJKLMNOPQRSTU",   "BCDEFGHIJKLMNOPQRSTUV"),   # 24
-        # ("BCDEFGHIJKLMNOPQRSTU",   "BCDEFGHIJKLMNOPQRSTU"),    # 25
-        # ("BCDEFGHIJKLMNOPQRSTU",   "ABDEGHJKMNPQSTV"),         # 26
-        # ("BCDEFGHIJKLMNOPQRSTU",   "ACEGIKMOQSU"),             # 27
-        # ("BCDEFGHIJKLMNOPQRSTU",   "BDFHJLNPRTV"),             # 28
-        # ("ABDEGHJKMNPQSTV",        "ABCDEFGHIJKLMNOPQRSTUV"),  # 29
-        # ("ABDEGHJKMNPQSTV",        "ABCDEFGHIJKLMNOPQRSTU"),   # 30
-        # ("ABDEGHJKMNPQSTV",        "BCDEFGHIJKLMNOPQRSTUV"),   # 31
-        # ("ABDEGHJKMNPQSTV",        "BCDEFGHIJKLMNOPQRSTU"),    # 32
-        # ("ABDEGHJKMNPQSTV",        "ABDEGHJKMNPQSTV"),         # 33
-        # ("ABDEGHJKMNPQSTV",        "ACEGIKMOQSU"),             # 34
-        # ("ABDEGHJKMNPQSTV",        "BDFHJLNPRTV"),             # 35
-        # ("ACEGIKMOQSU",            "ABCDEFGHIJKLMNOPQRSTUV"),  # 36
-        # ("ACEGIKMOQSU",            "ABCDEFGHIJKLMNOPQRSTU"),   # 37
-        # ("ACEGIKMOQSU",            "BCDEFGHIJKLMNOPQRSTUV"),   # 38
-        # ("ACEGIKMOQSU",            "BCDEFGHIJKLMNOPQRSTU"),    # 39
-        # ("ACEGIKMOQSU",            "ABDEGHJKMNPQSTV"),         # 40
-        # ("ACEGIKMOQSU",            "ACEGIKMOQSU"),             # 41
-        # ("ACEGIKMOQSU",            "BDFHJLNPRTV"),             # 42
-        # ("BDFHJLNPRTV",            "ABCDEFGHIJKLMNOPQRSTUV"),  # 43
-        # ("BDFHJLNPRTV",            "ABCDEFGHIJKLMNOPQRSTU"),   # 44
-        # ("BDFHJLNPRTV",            "BCDEFGHIJKLMNOPQRSTUV"),   # 45
-        # ("BDFHJLNPRTV",            "BCDEFGHIJKLMNOPQRSTU"),    # 46
-        # ("BDFHJLNPRTV",            "ABDEGHJKMNPQSTV"),         # 47
-        # ("BDFHJLNPRTV",            "ACEGIKMOQSU"),             # 48
-        # ("BDFHJLNPRTV",            "BDFHJLNPRTV"),             # 49
-        # ("ACDEFGHIJKLMNOPQRST",    "ACDEFGHIJKLMNOPQRST"),     # 50
+         ("ABCDEFGHIJ", "ABCDEFGHIJ"),  # 1
+         ("ABCDEFGHIJ", "ABCDEFGHI"),   # 2
+         ("ABCDEFGHIJ", "BCDEFGHIJ"),   # 3
+         ("ABCDEFGHIJ", "BCDEFGHI"),    # 4
+         ("ABCDEFGHIJ", "ABDEGHJ"),         # 5
+         ("ABCDEFGHIJ", "ACEGI"),             # 6
+         ("ABCDEFGHIJ", "BDFHJ"),             # 7
+         ("ABCDEFGHI",  "ABCDEFGHIJ"),  # 8
+         ("ABCDEFGHI",  "ABCDEFGHI"),   # 9
     ]
 
     total = len(pruebas)
     salidas = []
 
     # Cargar TPM una sola vez (todas las pruebas usan la misma red N20A)
-    print(f"Cargando TPM N20A... ", file=sys.stderr, end="")
+    print(f"Cargando TPM ... ", file=sys.stderr, end="")
     gestor = Manager(estado)
     ruta_tpm = gestor.tpm_filename
     tpm = np.loadtxt(ruta_tpm, delimiter=",", dtype=np.int8)
@@ -191,12 +150,12 @@ def main():
             particion, perdida, tiempo = run_test(
                 estado, alc, mec, k, tpm, gestor, pagina='A'
             )
-            linea = f"{particion}\t{perdida}\t{tiempo}"
-            salidas.append(linea)
+            linea = f"{particion}  |  φ={perdida}  |  Tiempo={tiempo} seg"
+            salidas.append((alc, mec, linea))
             print(f"\r  Prueba {idx}/{total}", file=sys.stderr, end="")
         except Exception as e:
             print(f"\n  ERROR prueba {idx}: {e}", file=sys.stderr)
-            salidas.append("\t\t")
+            salidas.append((alc, mec, "ERROR"))
 
         if idx % 5 == 0:
             gc.collect()
@@ -205,8 +164,12 @@ def main():
     print("\n" + "="*60, file=sys.stderr)
     print("SALIDAS:", file=sys.stderr)
     print("="*60, file=sys.stderr)
-    for linea in salidas:
+    for idx, (alc, mec, linea) in enumerate(salidas, start=1):
+        print(f"{idx}{'-'*50}")
+        print(f"Alcance: {alc}")
+        print(f"Mecanismo: {mec}")
         print(linea)
+        print()
 
 
 if __name__ == "__main__":

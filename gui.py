@@ -27,6 +27,10 @@ class App:
 
         style = ttk.Style()
         style.theme_use("clam")
+        style.configure("green.TButton", background="#2e7d32", foreground="white",
+                        borderwidth=1, focusthickness=3, padding=4)
+        style.map("green.TButton",
+                  background=[("active", "#43a047"), ("pressed", "#1b5e20")])
 
         main = ttk.Frame(self.win, padding=12)
         main.pack(fill=BOTH, expand=True)
@@ -57,20 +61,17 @@ class App:
             return e
 
         row = 0
-        self.estado_inicial = campo("Estado inicial (binario):", "100000000000000")
-        self.condiciones = campo("Condiciones (binario):", "1110")
-        self.alcance = campo("Alcance (binario):", "1110")
-        self.mecanismo = campo("Mecanismo (binario):", "1110")
+        self.estado_inicial = campo("Estado inicial (binario):", "1000000000")
 
-        self.alcance_letras = campo("Alcance (letras, ej. ABC):", "ABC")
-        self.mecanismo_letras = campo("Mecanismo (letras, ej. ABC):", "ABC")
+        self.alcance_letras = campo("Alcance (letras, ej. ABC):", "ABCDEFGHIJ")
+        self.mecanismo_letras = campo("Mecanismo (letras, ej. ABC):", "ABCDEFGHIJ")
 
         # k
         frame_k = ttk.Frame(self.f_params)
         frame_k.pack(fill=X, pady=1)
         ttk.Label(frame_k, text="k (particiones):", width=32, anchor=W).pack(side=LEFT)
         self.k_entry = ttk.Entry(frame_k, width=12)
-        self.k_entry.insert(0, "2")
+        self.k_entry.insert(0, "3")
         self.k_entry.pack(side=LEFT, padx=6)
         self.k_entry.bind("<KeyRelease>", self._toggle_sa_params)
         self._filas[row] = frame_k
@@ -132,7 +133,7 @@ class App:
         # --- Botón ejecutar ---
         btn_frame = ttk.Frame(main)
         btn_frame.pack(fill=X, pady=6)
-        self.run_btn = ttk.Button(btn_frame, text="▶ Ejecutar", command=self._ejecutar)
+        self.run_btn = ttk.Button(btn_frame, text="▶ Ejecutar", command=self._ejecutar, style="green.TButton")
         self.run_btn.pack(side=LEFT, padx=(0, 6))
         self.progress = ttk.Progressbar(btn_frame, mode="indeterminate", length=200)
         self.progress.pack(side=LEFT, fill=X, expand=True)
@@ -194,7 +195,7 @@ class App:
             self.run_btn.config(state=NORMAL)
 
     def _run_kgeomip(self, estado, pagina):
-        method2_root = ROOT / "GeoMIP" / "src" / "Method2_Dynamic_Programming_Reformulation"
+        method2_root = ROOT / "kGeoMip" / "src" / "Method2_Dynamic_Programming_Reformulation"
         old_cwd = Path.cwd()
         os.chdir(method2_root)
         sys.path.insert(0, str(method2_root))
@@ -346,7 +347,6 @@ class App:
             # Mostrar los tres valores al final, en formato CSV con tabuladores
             csv_line = f"{particion}\t{perdida}\t{tiempo}"
             self._log("\n" + "="*50)
-            self._log("📋 DATOS PARA EXCEL (copiar esta línea):")
             self._log(csv_line)
             self._log("="*50)
 

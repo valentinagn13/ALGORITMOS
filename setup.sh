@@ -33,13 +33,8 @@ echo "[INFO] Instalando dependencias Python (requirements.txt)..."
 pip install -r requirements.txt
 
 # --- 5. Sincronizar subproyectos con uv ---
-echo "[INFO] Sincronizando QNodes..."
-cd QNodes
-uv sync
-cd ..
-
-echo "[INFO] Sincronizando GeoMIP/Method2..."
-cd GeoMIP/src/Method2_Dynamic_Programming_Reformulation
+echo "[INFO] Sincronizando kGeoMip/Method2..."
+cd kGeoMip/src/Method2_Dynamic_Programming_Reformulation
 uv sync
 cd ../../..
 
@@ -57,8 +52,5 @@ echo ""
 echo "Para activar el entorno:"
 echo "  source venv/bin/activate"
 echo ""
-echo "Para ejecutar QNodes:"
-echo "  cd QNodes && uv run exec.py"
-echo ""
-echo "Para ejecutar GeoMIP/Method2:"
-echo "  cd GeoMIP/src/Method2_Dynamic_Programming_Reformulation && uv run exec.py"
+echo "Para ejecutar kGeoMip/Method2:"
+echo "  cd kGeoMip/src/Method2_Dynamic_Programming_Reformulation && uv run exec.py"
