@@ -22,6 +22,7 @@ from cli import _letras_a_binario
 from src.controllers.manager import Manager
 from src.controllers.strategies.geometric import GeometricSIA
 from src.middlewares.slogger import SafeLogger
+from src.middlewares.profile import profiler_manager
 import numpy as np
 
 
@@ -114,6 +115,7 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, tpm, gestor, pagina='A
 def main():
     # Deshabilitar profiling y logging para modo batch
     aplicacion.profiler_habilitado = False
+    profiler_manager.enabled = False
     SafeLogger.silent = True
 
     k = int(sys.argv[1]) if len(sys.argv) > 1 else 5
