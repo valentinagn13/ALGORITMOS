@@ -8,9 +8,9 @@ sys.path.insert(0, str(geo_src))
 from src.controllers.manager import Manager
 
 def main():
-    gestor = Manager(estado_inicial="0"*25)
+    gestor = Manager(estado_inicial="0"*22)
     # Intenta sin argumentos extra
-    nombre_archivo = gestor.generar_red(dimensiones=25)
+    nombre_archivo = gestor.generar_red(dimensiones=22)
     if nombre_archivo:
         print(f"✅ Red generada: {nombre_archivo}")
     else:

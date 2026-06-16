@@ -68,22 +68,22 @@ ESTADO_N4 = np.array([0, 1, 0, 1], dtype=np.int8)
 
 
 # ---------------------------------------------------------------------------
-# Helper: instancia mínima de GeometricSIA con subsistema inyectado
+# Helper: instancia mínima de KGeoMip con subsistema inyectado
 # ---------------------------------------------------------------------------
 
 def hacer_geometric_con_subsistema(subsistema):
     """
-    Crea una instancia de GeometricSIA sin pasar por __init__ completo,
+    Crea una instancia de KGeoMip sin pasar por __init__ completo,
     inyectando directamente el subsistema y los datos necesarios para kpartir().
     """
-    from src.controllers.strategies.geometric import GeometricSIA
+    from src.controllers.strategies.kgeomip import KGeoMip
     from src.middlewares.slogger import SafeLogger
-    from src.constants.models import GEOMETRIC_STRAREGY_TAG
+    from src.constants.models import KGEOMIP_STRAREGY_TAG
 
-    geo = GeometricSIA.__new__(GeometricSIA)
+    geo = KGeoMip.__new__(KGeoMip)
     geo.sia_subsistema = subsistema
     geo.sia_dists_marginales = subsistema.distribucion_marginal()
-    geo.sia_logger = SafeLogger(GEOMETRIC_STRAREGY_TAG)  # requerido por find_mip
+    geo.sia_logger = SafeLogger(KGEOMIP_STRAREGY_TAG)  # requerido por find_mip
     geo.logger = geo.sia_logger  # kpartir() usa self.logger
     geo.tabla_transiciones = {}
     geo.memoria_particiones = {}

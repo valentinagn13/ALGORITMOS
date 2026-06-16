@@ -9,7 +9,7 @@ Flujo:
     2. Ingresar alcance (letras del sistema a conservar en futuro)
     3. Ingresar mecanismo (letras del sistema a conservar en presente)
     4. Ingresar k (número de particiones ≥ 2)
-    5. El sistema carga la TPM, ejecuta GeometricSIA y muestra la solución.
+     5. El sistema carga la TPM, ejecuta KGeoMip y muestra la solución.
 """
 
 import sys
@@ -20,7 +20,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from src.controllers.manager import Manager
-from src.controllers.strategies.geometric import GeometricSIA
+from src.controllers.strategies.kgeomip import KGeoMip
 from src.funcs.base import ABECEDARY, emd_efecto
 from src.models.base.application import aplicacion
 
@@ -28,7 +28,7 @@ from src.models.base.application import aplicacion
 BANNER = """
   ╔══════════════════════════════════════════════════════╗
   ║   GeoMIP — Análisis de Particiones Óptimas (k-MIP)  ║
-  ║   Estrategia Geométrico-Topológica (GeometricSIA)   ║
+  ║   Estrategia Geométrico-Topológica (KGeoMip)        ║
   ╚══════════════════════════════════════════════════════╝
 """
 
@@ -206,7 +206,7 @@ def ejecutar_interactivo():
         print(f"  TPM cargada: {tpm.shape[0]} estados × {tpm.shape[1]} nodos")
         print()
 
-        analizador = GeometricSIA(gestor)
+        analizador = KGeoMip(gestor)
         solucion = analizador.aplicar_estrategia(
             condicion=condicion,
             alcance=alcance_bin,

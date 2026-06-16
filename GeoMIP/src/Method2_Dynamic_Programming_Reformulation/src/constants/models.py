@@ -20,12 +20,7 @@ PYPHI_LABEL: str = "Pyphi"
 PYPHI_STRAREGY_TAG: str = f"{PYPHI_LABEL}_strategy"
 PYPHI_ANALYSIS_TAG: str = f"{PYPHI_LABEL}_analysis"
 
-# Q-Nodes
-QNODES_LABEL: str = "Q-Nodes"
-QNODES_STRAREGY_TAG: str = f"{QNODES_LABEL}_strategy"
-QNODES_ANALYSIS_TAG: str = f"{QNODES_LABEL}_analysis"
-
-# Geometric
-GEOMETRIC_LABEL: str = "Geometric"
-GEOMETRIC_STRAREGY_TAG: str = f"{GEOMETRIC_LABEL}_strategy"
-GEOMETRIC_ANALYSIS_TAG: str = f"{GEOMETRIC_LABEL}_analysis"
+# K-GeoMIP
+KGEOMIP_LABEL: str = "K-GeoMIP"
+KGEOMIP_STRAREGY_TAG: str = f"{KGEOMIP_LABEL}_strategy"
+KGEOMIP_ANALYSIS_TAG: str = f"{KGEOMIP_LABEL}_analysis"

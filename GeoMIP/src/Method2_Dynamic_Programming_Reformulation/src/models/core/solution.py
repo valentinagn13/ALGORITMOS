@@ -306,7 +306,7 @@ class Solution:
 {Fore.YELLOW}Distribucion {tipo_distribucion} de la Partición:
 {Style.RESET_ALL}{formatear_distribucion(self.distribucion_particion)}
 
-{Fore.YELLOW}Mejor Bi-Partición:
+{Fore.YELLOW}Mejor K-Partición:
 {Fore.MAGENTA}{self._display_particion()}
 {Fore.GREEN}Perdida mínima ( φ ) = {self.perdida:.4f}
 

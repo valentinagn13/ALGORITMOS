@@ -86,7 +86,7 @@ class BruteForce(SIA):
         if k != 2:
             raise ValueError(
                 f"BruteForce solo soporta k=2 (biparticiones). "
-                f"Usa GeometricSIA para k={k}. Recibido k={k}."
+                f"Usa KGeoMip para k={k}. Recibido k={k}."
             )
         self.sia_preparar_subsistema(condiciones, alcance, mecanismo)
 

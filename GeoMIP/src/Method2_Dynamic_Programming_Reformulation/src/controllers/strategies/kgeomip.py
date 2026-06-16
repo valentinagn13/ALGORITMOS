@@ -15,9 +15,9 @@ from src.constants.base import (
     TYPE_TAG,
 )
 from src.constants.models import (
-    GEOMETRIC_ANALYSIS_TAG,
-    GEOMETRIC_LABEL,
-    GEOMETRIC_STRAREGY_TAG,
+    KGEOMIP_ANALYSIS_TAG,
+    KGEOMIP_LABEL,
+    KGEOMIP_STRAREGY_TAG,
 )
 from src.controllers.manager import Manager
 from src.funcs.format import fmt_grupos_particion
@@ -28,14 +28,14 @@ import time
 from typing import List, Dict, Tuple, Optional
 
 
-class GeometricSIA(SIA):
+class KGeoMip(SIA):
     def __init__(self, gestor: Manager):
         super().__init__(gestor)
         profiler_manager.start_session(
             f"{NET_LABEL}{len(gestor.estado_inicial)}{gestor.pagina}"
         )
         self.etiquetas = [tuple(s.lower() for s in ABECEDARY), ABECEDARY]
-        self.logger = SafeLogger(GEOMETRIC_STRAREGY_TAG)
+        self.logger = SafeLogger(KGEOMIP_STRAREGY_TAG)
         self.tabla_transiciones: dict = {}
         self.vertices: set[tuple]
         self.tabla: dict[int, list[tuple[int, int]]] = {}
@@ -65,7 +65,7 @@ class GeometricSIA(SIA):
             val = (val << 1) | b
         return val
 
-    @profile(context={TYPE_TAG: GEOMETRIC_ANALYSIS_TAG})
+    @profile(context={TYPE_TAG: KGEOMIP_ANALYSIS_TAG})
     def aplicar_estrategia(
         self,
         condicion: str,
@@ -75,7 +75,7 @@ class GeometricSIA(SIA):
         k: int = 2,
     ):
         self.logger.info("═" * 60)
-        self.logger.info("     ESTRATEGIA GEOMÉTRICA — INICIO")
+        self.logger.info("     ESTRATEGIA K-GeoMIP — INICIO")
         self.logger.info("═" * 60)
 
         self.sia_preparar_subsistema(condicion, alcance, mecanismo, tpm)  #! COMENTAR PARA UN SOLO ESTADO INICIAL
@@ -137,7 +137,7 @@ class GeometricSIA(SIA):
         self.logger.info("")
 
         return Solution(
-            estrategia=GEOMETRIC_LABEL,
+            estrategia=KGEOMIP_LABEL,
             perdida=self.memoria_particiones[mip][0],
             distribucion_subsistema=self.sia_dists_marginales,
             distribucion_particion=self.memoria_particiones[mip][1],

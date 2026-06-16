@@ -13,8 +13,7 @@ def clean_ansi(text: str) -> str:
 
 ROOT = Path(__file__).resolve().parent
 
-STRATEGIES_QNODES = ["BruteForce", "QNodes", "Phi"]
-STRATEGIES_GEOMIP = ["GeometricSIA", "QNodes"]
+STRATEGIES_KGEOMIP = ["KGeoMip"]
 PAGE_LETTERS = [chr(ord("A") + i) for i in range(26)]
 
 
@@ -35,11 +34,9 @@ class App:
         # --- Módulo ---
         f_mod = ttk.LabelFrame(main, text="Módulo", padding=8)
         f_mod.pack(fill=X, pady=(0, 8))
-        self.modulo = StringVar(value="QNodes")
-        ttk.Radiobutton(f_mod, text="QNodes", variable=self.modulo,
-                        value="QNodes", command=self._toggle_modulo).pack(side=LEFT, padx=6)
-        ttk.Radiobutton(f_mod, text="GeoMIP", variable=self.modulo,
-                        value="GeoMIP", command=self._toggle_modulo).pack(side=LEFT, padx=6)
+        self.modulo = StringVar(value="KGeoMip")
+        ttk.Radiobutton(f_mod, text="KGeoMip", variable=self.modulo,
+                        value="KGeoMip", command=self._toggle_modulo).pack(side=LEFT, padx=6)
 
         # --- Parámetros ---
         self.f_params = ttk.LabelFrame(main, text="Parámetros de entrada", padding=8)
@@ -75,7 +72,37 @@ class App:
         self.k_entry = ttk.Entry(frame_k, width=12)
         self.k_entry.insert(0, "2")
         self.k_entry.pack(side=LEFT, padx=6)
+        self.k_entry.bind("<KeyRelease>", self._toggle_sa_params)
         self._filas[row] = frame_k
+        row += 1
+
+        # SA parameters (hidden when k <= 2)
+        self._sa_rows: list[int] = []
+
+        frame_sa1 = ttk.Frame(self.f_params)
+        ttk.Label(frame_sa1, text="SA habilitado:", width=32, anchor=W).pack(side=LEFT)
+        self.sa_enabled_var = BooleanVar(value=True)
+        ttk.Checkbutton(frame_sa1, variable=self.sa_enabled_var).pack(side=LEFT, padx=6)
+        self._filas[row] = frame_sa1
+        self._sa_rows.append(row)
+        row += 1
+
+        frame_sa2 = ttk.Frame(self.f_params)
+        ttk.Label(frame_sa2, text="SA max_iter:", width=32, anchor=W).pack(side=LEFT)
+        self.sa_max_iter_entry = ttk.Entry(frame_sa2, width=12)
+        self.sa_max_iter_entry.insert(0, "1700")
+        self.sa_max_iter_entry.pack(side=LEFT, padx=6)
+        self._filas[row] = frame_sa2
+        self._sa_rows.append(row)
+        row += 1
+
+        frame_sa3 = ttk.Frame(self.f_params)
+        ttk.Label(frame_sa3, text="SA max_time (seg):", width=32, anchor=W).pack(side=LEFT)
+        self.sa_max_time_entry = ttk.Entry(frame_sa3, width=12)
+        self.sa_max_time_entry.insert(0, "25.0")
+        self.sa_max_time_entry.pack(side=LEFT, padx=6)
+        self._filas[row] = frame_sa3
+        self._sa_rows.append(row)
         row += 1
 
         # Página / variante TPM
@@ -93,9 +120,9 @@ class App:
         frame_estr = ttk.Frame(self.f_params)
         frame_estr.pack(fill=X, pady=1)
         ttk.Label(frame_estr, text="Estrategia:", width=32, anchor=W).pack(side=LEFT)
-        self.estrategia_var = StringVar(value="BruteForce")
+        self.estrategia_var = StringVar(value="KGeoMip")
         self.estrategia_cb = ttk.Combobox(frame_estr, textvariable=self.estrategia_var,
-                                          values=STRATEGIES_QNODES, state="readonly", width=18)
+                                          values=STRATEGIES_KGEOMIP, state="readonly", width=18)
         self.estrategia_cb.pack(side=LEFT, padx=6)
         self._filas[row] = frame_estr
         row += 1
@@ -119,30 +146,18 @@ class App:
     # ------------------------------------------------------------------
     def _toggle_modulo(self):
         modo = self.modulo.get()
-        is_qn = modo == "QNodes"
-        is_gm = modo == "GeoMIP"
+        self.estrategia_cb["values"] = STRATEGIES_KGEOMIP
+        if self.estrategia_var.get() not in STRATEGIES_KGEOMIP:
+            self.estrategia_var.set("KGeoMip")
 
-        # Filas según módulo (0=siempre, 1-3=QNodes, 4-6=GeoMIP, 7-8=siempre)
-        for r in range(0, 9):
-            if r == 0:
-                show = True
-            elif r in (1, 2, 3):
-                show = is_qn
-            elif r in (4, 5, 6):
-                show = is_gm
-            else:
-                show = True
-            self._show_row(r, show)
-
-        # Estrategia
-        if is_qn:
-            self.estrategia_cb["values"] = STRATEGIES_QNODES
-            if self.estrategia_var.get() not in STRATEGIES_QNODES:
-                self.estrategia_var.set("BruteForce")
-        else:
-            self.estrategia_cb["values"] = STRATEGIES_GEOMIP
-            if self.estrategia_var.get() not in STRATEGIES_GEOMIP:
-                self.estrategia_var.set("GeometricSIA")
+    def _toggle_sa_params(self, event=None):
+        try:
+            k = int(self.k_entry.get().strip())
+            show = k > 2
+        except ValueError:
+            show = False
+        for row in self._sa_rows:
+            self._show_row(row, show)
 
     def _show_row(self, row, show):
         frame = self._filas.get(row)
@@ -167,15 +182,9 @@ class App:
 
     def _run_analysis(self):
         try:
-            modulo = self.modulo.get()
             pagina = self.pagina_var.get().strip()
             estado = self.estado_inicial.get().strip()
-            estrategia_nombre = self.estrategia_var.get()
-
-            if modulo == "QNodes":
-                self._run_qnodes(estado, pagina, estrategia_nombre)
-            else:
-                self._run_geomip(estado, pagina, estrategia_nombre)
+            self._run_kgeomip(estado, pagina)
         except Exception as e:
             self._log(f"\nERROR: {e}")
             import traceback
@@ -184,55 +193,7 @@ class App:
             self.progress.stop()
             self.run_btn.config(state=NORMAL)
 
-    def _run_qnodes(self, estado, pagina, estrategia_nombre):
-        qnodes_dir = ROOT / "QNodes"
-        old_cwd = Path.cwd()
-        os.chdir(qnodes_dir)
-        sys.path.insert(0, str(qnodes_dir))
-
-        try:
-            from src.models.base.application import aplicacion
-
-            aplicacion.set_pagina_red_muestra(pagina)
-            aplicacion.activar_profiling()
-
-            condiciones = self.condiciones.get().strip()
-            alcance = self.alcance.get().strip()
-            mecanismo = self.mecanismo.get().strip()
-
-            self._log(f"  Módulo:     QNodes")
-            self._log(f"  Página TPM: {pagina}")
-            self._log(f"  Estrategia: {estrategia_nombre}")
-            self._log(f"  Estado ini: {estado}")
-            self._log(f"  Condiciones: {condiciones}")
-            self._log(f"  Alcance:    {alcance}")
-            self._log(f"  Mecanismo:  {mecanismo}")
-            self._log(f"  ─────────────────────────────────────────")
-
-            from src.controllers.manager import Manager
-
-            gestor = Manager(estado)
-            mpt = gestor.cargar_red()
-
-            if estrategia_nombre == "BruteForce":
-                from src.strategies.force import BruteForce
-                analizador = BruteForce(mpt)
-            elif estrategia_nombre == "Phi":
-                from src.strategies.phi import Phi
-                analizador = Phi(mpt)
-            else:
-                from src.strategies.q_nodes import QNodes
-                analizador = QNodes(mpt)
-
-            self._log(f"  Ejecutando {estrategia_nombre}...\n")
-            resultado = analizador.aplicar_estrategia(
-                condiciones, alcance, mecanismo,
-            )
-            self._log(str(resultado))
-        finally:
-            os.chdir(old_cwd)
-            
-    def _run_geomip(self, estado, pagina, estrategia_nombre):
+    def _run_kgeomip(self, estado, pagina):
         method2_root = ROOT / "GeoMIP" / "src" / "Method2_Dynamic_Programming_Reformulation"
         old_cwd = Path.cwd()
         os.chdir(method2_root)
@@ -255,9 +216,8 @@ class App:
             mecanismo_bin = _letras_a_binario(mecanismo_l, n)
             condicion = "1" * n
 
-            self._log(f"  Módulo:     GeoMIP")
+            self._log(f"  Módulo:     KGeoMip")
             self._log(f"  Página TPM: {pagina}")
-            self._log(f"  Estrategia: {estrategia_nombre}")
             self._log(f"  Estado ini: {estado}")
             self._log(f"  Alcance:    {alcance_l} → {alcance_bin}")
             self._log(f"  Mecanismo:  {mecanismo_l} → {mecanismo_bin}")
@@ -273,14 +233,24 @@ class App:
             tpm = np.genfromtxt(ruta_tpm, delimiter=",")
             self._log(f"  TPM: {tpm.shape[0]} estados × {tpm.shape[1]} nodos\n")
 
-            if estrategia_nombre == "GeometricSIA":
-                from src.controllers.strategies.geometric import GeometricSIA
-                analizador = GeometricSIA(gestor)
-            else:
-                from src.controllers.strategies.q_nodes import QNodes
-                analizador = QNodes(gestor)
+            from src.controllers.strategies.kgeomip import KGeoMip
+            analizador = KGeoMip(gestor)
 
-            self._log(f"  Ejecutando {estrategia_nombre} (k={k})...\n")
+            if k > 2:
+                analizador.sa_enabled = self.sa_enabled_var.get()
+                try:
+                    analizador.sa_max_iter = int(self.sa_max_iter_entry.get().strip())
+                except ValueError:
+                    pass
+                try:
+                    analizador.sa_max_time = float(self.sa_max_time_entry.get().strip())
+                except ValueError:
+                    pass
+                self._log(f"  SA enabled:  {analizador.sa_enabled}")
+                self._log(f"  SA max_iter: {analizador.sa_max_iter}")
+                self._log(f"  SA max_time: {analizador.sa_max_time}s")
+
+            self._log(f"  Ejecutando KGeoMip (k={k})...\n")
             resultado = analizador.aplicar_estrategia(
                 condicion=condicion, alcance=alcance_bin,
                 mecanismo=mecanismo_bin, tpm=tpm, k=k,
@@ -306,7 +276,7 @@ class App:
                 if "G0:" in line and "G1:" in line:
                     formato_g = True
                     break
-                if "Mejor Bi-Partición" in line:
+                if "Mejor K-Partición" in line:
                     formato_barras = True
                     break
 
@@ -316,14 +286,14 @@ class App:
                 for line in lineas:
                     if "G0:" in line and "G1:" in line:
                         if "Mejor" in line:
-                            particion = line.split("Mejor Bi-Partición:")[-1].strip()
+                            particion = line.split("Mejor K-Partición:")[-1].strip()
                         else:
                             particion = line.strip()
                         break
             elif formato_barras:
                 # Nuevo formato 3 líneas: futuro, presente, etiquetas
                 for i, line in enumerate(lineas):
-                    if "Mejor Bi-Partición" in line:
+                    if "Mejor K-Partición" in line:
                         for j in range(i+1, min(i+5, len(lineas))):
                             if lineas[j].strip().startswith("|") and "||" in lineas[j]:
                                 particion_lines = [lineas[j].rstrip()]

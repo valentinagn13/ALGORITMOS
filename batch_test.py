@@ -20,7 +20,7 @@ sys.path.insert(0, str(METHOD2_ROOT))
 from src.models.base.application import aplicacion
 from cli import _letras_a_binario
 from src.controllers.manager import Manager
-from src.controllers.strategies.geometric import GeometricSIA
+from src.controllers.strategies.kgeomip import KGeoMip
 from src.middlewares.slogger import SafeLogger
 from src.middlewares.profile import profiler_manager
 import numpy as np
@@ -43,7 +43,7 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, tpm, gestor, pagina='A
     mecanismo_bin = _letras_a_binario(mecanismo_letras.upper(), n)
     condicion = "1" * n
 
-    analizador = GeometricSIA(gestor)
+    analizador = KGeoMip(gestor)
     resultado_raw = analizador.aplicar_estrategia(
         condicion=condicion,
         alcance=alcance_bin,
@@ -59,19 +59,19 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, tpm, gestor, pagina='A
     tiempo = ""
 
     formato_g = any("G0:" in line and "G1:" in line for line in lineas)
-    formato_barras = any("Mejor Bi-Partición" in line for line in lineas)
+    formato_barras = any("Mejor K-Partición" in line for line in lineas)
 
     if formato_g:
         for line in lineas:
             if "G0:" in line and "G1:" in line:
                 if "Mejor" in line:
-                    particion = line.split("Mejor Bi-Partición:")[-1].strip()
+                    particion = line.split("Mejor K-Partición:")[-1].strip()
                 else:
                     particion = line.strip()
                 break
     elif formato_barras:
         for i, line in enumerate(lineas):
-            if "Mejor Bi-Partición" in line:
+            if "Mejor K-Partición" in line:
                 for j in range(i+1, min(i+5, len(lineas))):
                     if lineas[j].strip().startswith("|") and "||" in lineas[j]:
                         particion_lines = [lineas[j].rstrip()]
@@ -120,59 +120,58 @@ def main():
 
     k = int(sys.argv[1]) if len(sys.argv) > 1 else 5
 
-    estado = "10000000000000000000"
-
+    estado = "1000000000000000000000"
     pruebas = [
-        ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRST"),  # 1
-        ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRS"),   # 2
-        ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRST"),   # 3
-        ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRS"),    # 4
-        ("ABCDEFGHIJKLMNOPQRST", "ABDEGHJKMNPQST"),        # 5
-        ("ABCDEFGHIJKLMNOPQRST", "ACEGIKMOQS"),            # 6
-        ("ABCDEFGHIJKLMNOPQRST", "BDFHJLNPRT"),            # 7
-        ("ABCDEFGHIJKLMNOPQRS",  "ABCDEFGHIJKLMNOPQRST"),  # 8
-        ("ABCDEFGHIJKLMNOPQRS",  "ABCDEFGHIJKLMNOPQRS"),   # 9
-        ("ABCDEFGHIJKLMNOPQRS",  "BCDEFGHIJKLMNOPQRST"),   # 10
-        ("ABCDEFGHIJKLMNOPQRS",  "BCDEFGHIJKLMNOPQRS"),    # 11
-        ("ABCDEFGHIJKLMNOPQRS",  "ABDEGHJKMNPQST"),        # 12
-        ("ABCDEFGHIJKLMNOPQRS",  "ACEGIKMOQS"),            # 13
-        ("ABCDEFGHIJKLMNOPQRS",  "BDFHJLNPRT"),            # 14
-        ("BCDEFGHIJKLMNOPQRST",  "ABCDEFGHIJKLMNOPQRST"),  # 15
-        ("BCDEFGHIJKLMNOPQRST",  "ABCDEFGHIJKLMNOPQRS"),   # 16
-        ("BCDEFGHIJKLMNOPQRST",  "BCDEFGHIJKLMNOPQRST"),   # 17
-        ("BCDEFGHIJKLMNOPQRST",  "BCDEFGHIJKLMNOPQRS"),    # 18
-        ("BCDEFGHIJKLMNOPQRST",  "ABDEGHJKMNPQST"),        # 19
-        ("BCDEFGHIJKLMNOPQRST",  "ACEGIKMOQS"),            # 20
-        # ("BCDEFGHIJKLMNOPQRST",  "BDFHJLNPRT"),            # 21
-        # ("BCDEFGHIJKLMNOPQRS",   "ABCDEFGHIJKLMNOPQRST"),  # 22
-        # ("BCDEFGHIJKLMNOPQRS",   "ABCDEFGHIJKLMNOPQRS"),   # 23
-        # ("BCDEFGHIJKLMNOPQRS",   "BCDEFGHIJKLMNOPQRST"),   # 24
-        # ("BCDEFGHIJKLMNOPQRS",   "BCDEFGHIJKLMNOPQRS"),    # 25
-        # ("BCDEFGHIJKLMNOPQRS",   "ABDEGHJKMNPQST"),        # 26
-        # ("BCDEFGHIJKLMNOPQRS",   "ACEGIKMOQS"),            # 27
-        # ("BCDEFGHIJKLMNOPQRS",   "BDFHJLNPRT"),            # 28
-        # ("ABDEGHJKMNPQST",       "ABCDEFGHIJKLMNOPQRST"),  # 29
-        # ("ABDEGHJKMNPQST",       "ABCDEFGHIJKLMNOPQRS"),   # 30
-        # ("ABDEGHJKMNPQST",       "BCDEFGHIJKLMNOPQRST"),   # 31
-        # ("ABDEGHJKMNPQST",       "BCDEFGHIJKLMNOPQRS"),    # 32
-        # ("ABDEGHJKMNPQST",       "ABDEGHJKMNPQST"),        # 33
-        # ("ABDEGHJKMNPQST",       "ACEGIKMOQS"),            # 34
-        # ("ABDEGHJKMNPQST",       "BDFHJLNPRT"),            # 35
-        # ("ACEGIKMOQS",           "ABCDEFGHIJKLMNOPQRST"),  # 36
-        # ("ACEGIKMOQS",           "ABCDEFGHIJKLMNOPQRS"),   # 37
-        # ("ACEGIKMOQS",           "BCDEFGHIJKLMNOPQRST"),   # 38
-        # ("ACEGIKMOQS",           "BCDEFGHIJKLMNOPQRS"),    # 39
-        # ("ACEGIKMOQS",           "ABDEGHJKMNPQST"),        # 40
-        # ("ACEGIKMOQS",           "ACEGIKMOQS"),            # 41
-        # ("ACEGIKMOQS",           "BDFHJLNPRT"),            # 42
-        # ("BDFHJLNPRT",           "ABCDEFGHIJKLMNOPQRST"),  # 43
-        # ("BDFHJLNPRT",           "ABCDEFGHIJKLMNOPQRS"),   # 44
-        # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRST"),   # 45
-        # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRS"),    # 46
-        # ("BDFHJLNPRT",           "ABDEGHJKMNPQST"),        # 47
-        # ("BDFHJLNPRT",           "ACEGIKMOQS"),            # 48
-        # ("BDFHJLNPRT",           "BDFHJLNPRT"),            # 49
-        # ("BCDEFGJKLMNO",         "BCDEFGHIJKLMNO"),        # 50
+        # ("ABCDEFGHIJKLMNOPQRSTUV", "ABCDEFGHIJKLMNOPQRSTUV"),  # 1
+        # ("ABCDEFGHIJKLMNOPQRSTUV", "ABCDEFGHIJKLMNOPQRSTU"),   # 2
+        # ("ABCDEFGHIJKLMNOPQRSTUV", "BCDEFGHIJKLMNOPQRSTUV"),   # 3
+        # ("ABCDEFGHIJKLMNOPQRSTUV", "BCDEFGHIJKLMNOPQRSTU"),    # 4
+        # ("ABCDEFGHIJKLMNOPQRSTUV", "ABDEGHJKMNPQSTV"),         # 5
+        # ("ABCDEFGHIJKLMNOPQRSTUV", "ACEGIKMOQSU"),             # 6
+        ("ABCDEFGHIJKLMNOPQRSTUV", "BDFHJLNPRTV"),             # 7
+        ("ABCDEFGHIJKLMNOPQRSTU",  "ABCDEFGHIJKLMNOPQRSTUV"),  # 8
+        ("ABCDEFGHIJKLMNOPQRSTU",  "ABCDEFGHIJKLMNOPQRSTU"),   # 9
+        ("ABCDEFGHIJKLMNOPQRSTU",  "BCDEFGHIJKLMNOPQRSTUV"),   # 10
+        # ("ABCDEFGHIJKLMNOPQRSTU",  "BCDEFGHIJKLMNOPQRSTU"),    # 11
+        # ("ABCDEFGHIJKLMNOPQRSTU",  "ABDEGHJKMNPQSTV"),         # 12
+        # ("ABCDEFGHIJKLMNOPQRSTU",  "ACEGIKMOQSU"),             # 13
+        # ("ABCDEFGHIJKLMNOPQRSTU",  "BDFHJLNPRTV"),             # 14
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "ABCDEFGHIJKLMNOPQRSTUV"),  # 15
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "ABCDEFGHIJKLMNOPQRSTU"),   # 16
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "BCDEFGHIJKLMNOPQRSTUV"),   # 17
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "BCDEFGHIJKLMNOPQRSTU"),    # 18
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "ABDEGHJKMNPQSTV"),         # 19
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "ACEGIKMOQSU"),             # 20
+        # ("BCDEFGHIJKLMNOPQRSTUV",  "BDFHJLNPRTV"),             # 21
+        # ("BCDEFGHIJKLMNOPQRSTU",   "ABCDEFGHIJKLMNOPQRSTUV"),  # 22
+        # ("BCDEFGHIJKLMNOPQRSTU",   "ABCDEFGHIJKLMNOPQRSTU"),   # 23
+        # ("BCDEFGHIJKLMNOPQRSTU",   "BCDEFGHIJKLMNOPQRSTUV"),   # 24
+        # ("BCDEFGHIJKLMNOPQRSTU",   "BCDEFGHIJKLMNOPQRSTU"),    # 25
+        # ("BCDEFGHIJKLMNOPQRSTU",   "ABDEGHJKMNPQSTV"),         # 26
+        # ("BCDEFGHIJKLMNOPQRSTU",   "ACEGIKMOQSU"),             # 27
+        # ("BCDEFGHIJKLMNOPQRSTU",   "BDFHJLNPRTV"),             # 28
+        # ("ABDEGHJKMNPQSTV",        "ABCDEFGHIJKLMNOPQRSTUV"),  # 29
+        # ("ABDEGHJKMNPQSTV",        "ABCDEFGHIJKLMNOPQRSTU"),   # 30
+        # ("ABDEGHJKMNPQSTV",        "BCDEFGHIJKLMNOPQRSTUV"),   # 31
+        # ("ABDEGHJKMNPQSTV",        "BCDEFGHIJKLMNOPQRSTU"),    # 32
+        # ("ABDEGHJKMNPQSTV",        "ABDEGHJKMNPQSTV"),         # 33
+        # ("ABDEGHJKMNPQSTV",        "ACEGIKMOQSU"),             # 34
+        # ("ABDEGHJKMNPQSTV",        "BDFHJLNPRTV"),             # 35
+        # ("ACEGIKMOQSU",            "ABCDEFGHIJKLMNOPQRSTUV"),  # 36
+        # ("ACEGIKMOQSU",            "ABCDEFGHIJKLMNOPQRSTU"),   # 37
+        # ("ACEGIKMOQSU",            "BCDEFGHIJKLMNOPQRSTUV"),   # 38
+        # ("ACEGIKMOQSU",            "BCDEFGHIJKLMNOPQRSTU"),    # 39
+        # ("ACEGIKMOQSU",            "ABDEGHJKMNPQSTV"),         # 40
+        # ("ACEGIKMOQSU",            "ACEGIKMOQSU"),             # 41
+        # ("ACEGIKMOQSU",            "BDFHJLNPRTV"),             # 42
+        # ("BDFHJLNPRTV",            "ABCDEFGHIJKLMNOPQRSTUV"),  # 43
+        # ("BDFHJLNPRTV",            "ABCDEFGHIJKLMNOPQRSTU"),   # 44
+        # ("BDFHJLNPRTV",            "BCDEFGHIJKLMNOPQRSTUV"),   # 45
+        # ("BDFHJLNPRTV",            "BCDEFGHIJKLMNOPQRSTU"),    # 46
+        # ("BDFHJLNPRTV",            "ABDEGHJKMNPQSTV"),         # 47
+        # ("BDFHJLNPRTV",            "ACEGIKMOQSU"),             # 48
+        # ("BDFHJLNPRTV",            "BDFHJLNPRTV"),             # 49
+        # ("ACDEFGHIJKLMNOPQRST",    "ACDEFGHIJKLMNOPQRST"),     # 50
     ]
 
     total = len(pruebas)
