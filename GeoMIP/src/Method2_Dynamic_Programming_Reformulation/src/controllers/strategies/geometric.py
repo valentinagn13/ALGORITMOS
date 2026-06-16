@@ -1,4 +1,5 @@
 import heapq
+import logging
 import math
 import random
 from src.constants.error import ERROR_INCOMPATIBLE_SIZES
@@ -45,16 +46,24 @@ class GeometricSIA(SIA):
         self._tiempo_candidatos: float = 0.0
 
         self._cache_phi: dict[tuple, float] = {}
+        self._cache_marg: dict[tuple, float] = {}
         self._tiempo_sa: float = 0.0
 
         self.sa_enabled = True
         self.sa_enabled_force = False
         self.sa_min_n = 10
-        self.sa_max_iter = 2000
-        self.sa_max_time = 30.0
+        self.sa_max_iter = 1700
+        self.sa_max_time = 25.0
         self.sa_T0: Optional[float] = None
         self.sa_alpha = 0.995
         self.sa_seed = 42
+
+    @staticmethod
+    def _bits_to_int(bits):
+        val = 0
+        for b in bits:
+            val = (val << 1) | b
+        return val
 
     @profile(context={TYPE_TAG: GEOMETRIC_ANALYSIS_TAG})
     def aplicar_estrategia(
@@ -212,6 +221,7 @@ class GeometricSIA(SIA):
         # Inicializar caminos PRIMERO, luego la tabla (corrige bug de orden)
         self.caminos: Dict[int, List[List[int]]] = {0: [estado_inicial.tolist()]}
         estado_ini_tuple = tuple(self.caminos[0][0])
+        self._bits_estado_inicial = self._bits_to_int(reversed(self.caminos[0][0]))
         self.tabla_transiciones[
             (estado_ini_tuple, estado_ini_tuple)
         ] = [0.0] * n_ncubos
@@ -400,12 +410,14 @@ class GeometricSIA(SIA):
             prob = self._marginalizar_e_indexar(ncubo, ejes, estado_inicial)
             resultado[i] = 1.0 - prob
 
-            letra = ABECEDARY[idx_ncubo] if idx_ncubo < len(ABECEDARY) else f"?{idx_ncubo}"
-            self.logger.debug(f"       NCubo {letra}({idx_ncubo}) → grupo={grupo_str}  P(ON)={prob:.4f}  dist={1.0-prob:.4f}")
+            if self.logger._logger.isEnabledFor(logging.DEBUG):
+                letra = ABECEDARY[idx_ncubo] if idx_ncubo < len(ABECEDARY) else f"?{idx_ncubo}"
+                self.logger.debug(f"       NCubo {letra}({idx_ncubo}) → grupo={grupo_str}  P(ON)={prob:.4f}  dist={1.0-prob:.4f}")
 
         emd_parcial = emd_efecto(resultado, self.sia_dists_marginales)
-        self.logger.debug(f"       Distribución resultante: {np.array2string(resultado, precision=4)}")
-        self.logger.debug(f"       EMD parcial: {emd_parcial:.6f}")
+        if self.logger._logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(f"       Distribución resultante: {np.array2string(resultado, precision=4)}")
+            self.logger.debug(f"       EMD parcial: {emd_parcial:.6f}")
         return resultado
 
     def _marginalizar_e_indexar(
@@ -422,22 +434,25 @@ class GeometricSIA(SIA):
         - ejes == dims   → marginalizar todo → media del tensor
         - caso parcial   → marginalizar y luego indexar dims restantes
         """
+        key = (ncubo.indice, tuple(ejes), tuple(estado_inicial))
+        if key in self._cache_marg:
+            return self._cache_marg[key]
+
         if ejes.size == 0:
-            # Sin marginalización: indexar directamente con estado inicial
             sub_estado = tuple(estado_inicial[j] for j in ncubo.dims)
-            return float(ncubo.data[seleccionar_subestado(sub_estado)])
+            val = float(ncubo.data[seleccionar_subestado(sub_estado)])
+        elif ejes.size == ncubo.dims.size:
+            val = float(np.mean(ncubo.data))
+        else:
+            cubo_marg = ncubo.marginalizar(ejes)
+            if cubo_marg.dims.size == 0:
+                val = float(cubo_marg.data)
+            else:
+                sub_estado = tuple(estado_inicial[j] for j in cubo_marg.dims)
+                val = float(cubo_marg.data[seleccionar_subestado(sub_estado)])
 
-        if ejes.size == ncubo.dims.size:
-            # Marginalizar todo: media global del tensor
-            return float(np.mean(ncubo.data))
-
-        # Marginalización parcial
-        cubo_marg = ncubo.marginalizar(ejes)
-        if cubo_marg.dims.size == 0:
-            return float(cubo_marg.data)
-
-        sub_estado = tuple(estado_inicial[j] for j in cubo_marg.dims)
-        return float(cubo_marg.data[seleccionar_subestado(sub_estado)])
+        self._cache_marg[key] = val
+        return val
 
     def calcular_costos_nivel(self, estado_final: np.ndarray, nivel):
         n = len(estado_final)
@@ -472,13 +487,11 @@ class GeometricSIA(SIA):
         distancia_hamming = self.hamming(estado_inicial, estado_final)
         factor = 1 / (2 ** distancia_hamming)
 
-        # Convertir estados a índices enteros para acceso directo en _flat_data
-        estado_ini_int = int("".join(map(str, estado_inicial[::-1])), 2)
-        estado_fin_int = int("".join(map(str, estado_final[::-1])), 2)
+        estado_fin_int = self._bits_to_int(reversed(estado_final))
 
         # Calcular diferencias absolutas para todos los NCubos de una vez (vectorizado)
         diffs = np.abs(
-            np.array([flat[estado_ini_int] for flat in self._flat_data])
+            np.array([flat[self._bits_estado_inicial] for flat in self._flat_data])
             - np.array([flat[estado_fin_int] for flat in self._flat_data])
         )
         self.tabla_transiciones[key] = diffs.tolist()

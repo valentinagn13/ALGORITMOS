@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
 Ejecuta una batería de pruebas para el análisis de particiones (GeometricSIA).
-Uso: python batch_tests.py [k]
-Ejemplo: python batch_tests.py 5
+Uso: python batch_test.py [k]
+Ejemplo: python batch_test.py 5
 """
 
+import gc
 import sys
 import os
 import re
@@ -20,18 +21,20 @@ from src.models.base.application import aplicacion
 from cli import _letras_a_binario
 from src.controllers.manager import Manager
 from src.controllers.strategies.geometric import GeometricSIA
+from src.middlewares.slogger import SafeLogger
 import numpy as np
+
 
 def clean_ansi(text: str) -> str:
     """Elimina códigos de escape ANSI."""
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
+
+def run_test(estado, alcance_letras, mecanismo_letras, k, tpm, gestor, pagina='A'):
     """
     Ejecuta una prueba de GeometricSIA y devuelve (particion, perdida, tiempo)
     """
-    # Configurar página TPM
     aplicacion.pagina_sample_network = pagina
 
     n = len(estado)
@@ -39,15 +42,7 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
     mecanismo_bin = _letras_a_binario(mecanismo_letras.upper(), n)
     condicion = "1" * n
 
-    # Cargar TPM
-    gestor = Manager(estado)
-    ruta_tpm = gestor.tpm_filename
-    tpm = np.genfromtxt(ruta_tpm, delimiter=",")
-
-    # Instanciar estrategia
     analizador = GeometricSIA(gestor)
-
-    # Ejecutar
     resultado_raw = analizador.aplicar_estrategia(
         condicion=condicion,
         alcance=alcance_bin,
@@ -58,12 +53,10 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
     texto_limpio = clean_ansi(str(resultado_raw))
     lineas = texto_limpio.splitlines()
 
-    # Extraer datos (mismo método que en la GUI)
     particion = ""
     perdida = ""
     tiempo = ""
 
-    # Detectar formato: nuevo (barras ||) o antiguo (G0:)
     formato_g = any("G0:" in line and "G1:" in line for line in lineas)
     formato_barras = any("Mejor Bi-Partición" in line for line in lineas)
 
@@ -76,7 +69,6 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
                     particion = line.strip()
                 break
     elif formato_barras:
-        # Nuevo formato 3 líneas: futuro, presente, etiquetas
         for i, line in enumerate(lineas):
             if "Mejor Bi-Partición" in line:
                 for j in range(i+1, min(i+5, len(lineas))):
@@ -90,7 +82,6 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
                         break
                 break
 
-    # Buscar pérdida
     for line in lineas:
         if "Perdida mínima" in line or "φ" in line:
             match = re.search(r"([0-9]+\.[0-9]+)", line)
@@ -98,7 +89,6 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
                 perdida = match.group(1)
                 break
 
-    # Buscar tiempo
     for line in lineas:
         if "Segundos:" in line:
             parts = line.split("Segundos:")
@@ -115,98 +105,100 @@ def run_test(estado, alcance_letras, mecanismo_letras, k, pagina='A'):
                         tiempo = parts[1].strip().split()[0]
                     break
 
-    # Convertir punto a coma para compatibilidad con Google Sheets
     perdida = perdida.replace('.', ',') if perdida else ""
-
-    if tiempo:
-        segundos = float(tiempo.replace(',', '.'))
-        minutos = int(segundos // 60)
-        segs = int(segundos % 60)
-        tiempo = f"min:{minutos}, seg={segs}"
-    else:
-        tiempo = ""
+    tiempo = tiempo.replace('.', ',') if tiempo else ""
 
     return particion, perdida, tiempo
 
+
 def main():
-    # k se puede pasar como argumento, por defecto 5
+    # Deshabilitar profiling y logging para modo batch
+    aplicacion.profiler_habilitado = False
+    SafeLogger.silent = True
+
     k = int(sys.argv[1]) if len(sys.argv) > 1 else 5
-    print(f"Ejecutando pruebas con k = {k}\n", file=sys.stderr)
 
-    # Estado inicial fijo (20 bits)
-    estado = "100000000000000"
+    estado = "10000000000000000000"
 
-    # Lista de pruebas: (alcance, mecanismo)
     pruebas = [
-        ("ABCDEFGHIJKLMNO", "ABCDEFGHIJKLMNO"),  # 1
-        ("ABCDEFGHIJKLMNO", "ABCDEFGHIJKLMN"),   # 2
-        ("ABCDEFGHIJKLMNO", "BCDEFGHIJKLMNO"),   # 3
-        ("ABCDEFGHIJKLMNO", "BCDEFGHIJKLMN"),    # 4
-        ("ABCDEFGHIJKLMNO", "ABDEGHJKMN"),       # 5
-        ("ABCDEFGHIJKLMNO", "ACEGIKMO"),         # 6
-        ("ABCDEFGHIJKLMNO", "BDFHJLN"),          # 7
-        ("ABCDEFGHIJKLMN", "ABCDEFGHIJKLMNO"),   # 8
-        ("ABCDEFGHIJKLMN", "ABCDEFGHIJKLMN"),    # 9
-        #("ABCDEFGHIJKLMN", "BCDEFGHIJKLMNO"),    # 10
-        #("ABCDEFGHIJKLMN", "BCDEFGHIJKLMN"),     # 11
-        #("ABCDEFGHIJKLMN", "ABDEGHJKMN"),        # 12
-        #("ABCDEFGHIJKLMN", "ACEGIKMO"),          # 13
-        #("ABCDEFGHIJKLMN", "BDFHJLN"),           # 14
-        #("BCDEFGHIJKLMNO", "ABCDEFGHIJKLMNO"),   # 15
-        #("BCDEFGHIJKLMNO", "ABCDEFGHIJKLMN"),    # 16
-        #("BCDEFGHIJKLMNO", "BCDEFGHIJKLMNO"),    # 17
-        #("BCDEFGHIJKLMNO", "BCDEFGHIJKLMN"),     # 18
-        #("BCDEFGHIJKLMNO", "ABDEGHJKMN"),        # 19
-        #("BCDEFGHIJKLMNO", "ACEGIKMO"),          # 20
-        #("BCDEFGHIJKLMNO", "BDFHJLN"),           # 21
-        #("BCDEFGHIJKLMN", "ABCDEFGHIJKLMNO"),    # 22
-        #("BCDEFGHIJKLMN", "ABCDEFGHIJKLMN"),     # 23
-        #("BCDEFGHIJKLMN", "BCDEFGHIJKLMNO"),     # 24
-        #("BCDEFGHIJKLMN", "BCDEFGHIJKLMN"),      # 25
-        #("BCDEFGHIJKLMN", "ABDEGHJKMN"),         # 26
-        #("BCDEFGHIJKLMN", "ACEGIKMO"),           # 27
-        #("BCDEFGHIJKLMN", "BDFHJLN"),            # 28
-     #   ("ABDEGHJKMN", "ABCDEFGHIJKLMNO"),       # 29
-     #   ("ABDEGHJKMN", "ABCDEFGHIJKLMN"),        # 30
-     #   ("ABDEGHJKMN", "BCDEFGHIJKLMNO"),        # 31
-     #   ("ABDEGHJKMN", "BCDEFGHIJKLMN"),         # 32
-     #   ("ABDEGHJKMN", "ABDEGHJKMN"),            # 33
-     #   ("ABDEGHJKMN", "ACEGIKMO"),              # 34
-     #   ("ABDEGHJKMN", "BDFHJLN"),               # 35
-   #     ("ACEGIKMO", "ABCDEFGHIJKLMNO"),         # 36
-   #     ("ACEGIKMO", "ABCDEFGHIJKLMN"),          # 37
-   #     ("ACEGIKMO", "BCDEFGHIJKLMNO"),          # 38
-   #     ("ACEGIKMO", "BCDEFGHIJKLMN"),           # 39
-   #     ("ACEGIKMO", "ABDEGHJKMN"),              # 40
-   #     ("ACEGIKMO", "ACEGIKMO"),                # 41
-   #     ("ACEGIKMO", "BDFHJLN"),                 # 42
-  #      ("BDFHJLN", "ABCDEFGHIJKLMNO"),          # 43
-  #      ("BDFHJLN", "ABCDEFGHIJKLMN"),           # 44
-  #      ("BDFHJLN", "BCDEFGHIJKLMNO"),           # 45
-  #      ("BDFHJLN", "BCDEFGHIJKLMN"),            # 46
-  #      ("BDFHJLN", "ABDEGHJKMN"),               # 47
-  #      ("BDFHJLN", "ACEGIKMO"),                 # 48
-  #      ("BDFHJLN", "BDFHJLN"),                  # 49
-       # ("BCDEFGJKLMNO", "BCDEFGHIJKLMNO"),      # 50
+        ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRST"),  # 1
+        ("ABCDEFGHIJKLMNOPQRST", "ABCDEFGHIJKLMNOPQRS"),   # 2
+        ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRST"),   # 3
+        ("ABCDEFGHIJKLMNOPQRST", "BCDEFGHIJKLMNOPQRS"),    # 4
+        ("ABCDEFGHIJKLMNOPQRST", "ABDEGHJKMNPQST"),        # 5
+        ("ABCDEFGHIJKLMNOPQRST", "ACEGIKMOQS"),            # 6
+        ("ABCDEFGHIJKLMNOPQRST", "BDFHJLNPRT"),            # 7
+        ("ABCDEFGHIJKLMNOPQRS",  "ABCDEFGHIJKLMNOPQRST"),  # 8
+        ("ABCDEFGHIJKLMNOPQRS",  "ABCDEFGHIJKLMNOPQRS"),   # 9
+        ("ABCDEFGHIJKLMNOPQRS",  "BCDEFGHIJKLMNOPQRST"),   # 10
+        ("ABCDEFGHIJKLMNOPQRS",  "BCDEFGHIJKLMNOPQRS"),    # 11
+        ("ABCDEFGHIJKLMNOPQRS",  "ABDEGHJKMNPQST"),        # 12
+        ("ABCDEFGHIJKLMNOPQRS",  "ACEGIKMOQS"),            # 13
+        ("ABCDEFGHIJKLMNOPQRS",  "BDFHJLNPRT"),            # 14
+        ("BCDEFGHIJKLMNOPQRST",  "ABCDEFGHIJKLMNOPQRST"),  # 15
+        ("BCDEFGHIJKLMNOPQRST",  "ABCDEFGHIJKLMNOPQRS"),   # 16
+        ("BCDEFGHIJKLMNOPQRST",  "BCDEFGHIJKLMNOPQRST"),   # 17
+        ("BCDEFGHIJKLMNOPQRST",  "BCDEFGHIJKLMNOPQRS"),    # 18
+        ("BCDEFGHIJKLMNOPQRST",  "ABDEGHJKMNPQST"),        # 19
+        ("BCDEFGHIJKLMNOPQRST",  "ACEGIKMOQS"),            # 20
+        # ("BCDEFGHIJKLMNOPQRST",  "BDFHJLNPRT"),            # 21
+        # ("BCDEFGHIJKLMNOPQRS",   "ABCDEFGHIJKLMNOPQRST"),  # 22
+        # ("BCDEFGHIJKLMNOPQRS",   "ABCDEFGHIJKLMNOPQRS"),   # 23
+        # ("BCDEFGHIJKLMNOPQRS",   "BCDEFGHIJKLMNOPQRST"),   # 24
+        # ("BCDEFGHIJKLMNOPQRS",   "BCDEFGHIJKLMNOPQRS"),    # 25
+        # ("BCDEFGHIJKLMNOPQRS",   "ABDEGHJKMNPQST"),        # 26
+        # ("BCDEFGHIJKLMNOPQRS",   "ACEGIKMOQS"),            # 27
+        # ("BCDEFGHIJKLMNOPQRS",   "BDFHJLNPRT"),            # 28
+        # ("ABDEGHJKMNPQST",       "ABCDEFGHIJKLMNOPQRST"),  # 29
+        # ("ABDEGHJKMNPQST",       "ABCDEFGHIJKLMNOPQRS"),   # 30
+        # ("ABDEGHJKMNPQST",       "BCDEFGHIJKLMNOPQRST"),   # 31
+        # ("ABDEGHJKMNPQST",       "BCDEFGHIJKLMNOPQRS"),    # 32
+        # ("ABDEGHJKMNPQST",       "ABDEGHJKMNPQST"),        # 33
+        # ("ABDEGHJKMNPQST",       "ACEGIKMOQS"),            # 34
+        # ("ABDEGHJKMNPQST",       "BDFHJLNPRT"),            # 35
+        # ("ACEGIKMOQS",           "ABCDEFGHIJKLMNOPQRST"),  # 36
+        # ("ACEGIKMOQS",           "ABCDEFGHIJKLMNOPQRS"),   # 37
+        # ("ACEGIKMOQS",           "BCDEFGHIJKLMNOPQRST"),   # 38
+        # ("ACEGIKMOQS",           "BCDEFGHIJKLMNOPQRS"),    # 39
+        # ("ACEGIKMOQS",           "ABDEGHJKMNPQST"),        # 40
+        # ("ACEGIKMOQS",           "ACEGIKMOQS"),            # 41
+        # ("ACEGIKMOQS",           "BDFHJLNPRT"),            # 42
+        # ("BDFHJLNPRT",           "ABCDEFGHIJKLMNOPQRST"),  # 43
+        # ("BDFHJLNPRT",           "ABCDEFGHIJKLMNOPQRS"),   # 44
+        # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRST"),   # 45
+        # ("BDFHJLNPRT",           "BCDEFGHIJKLMNOPQRS"),    # 46
+        # ("BDFHJLNPRT",           "ABDEGHJKMNPQST"),        # 47
+        # ("BDFHJLNPRT",           "ACEGIKMOQS"),            # 48
+        # ("BDFHJLNPRT",           "BDFHJLNPRT"),            # 49
+        # ("BCDEFGJKLMNO",         "BCDEFGHIJKLMNO"),        # 50
     ]
 
-    # Lista para almacenar las líneas de salida
+    total = len(pruebas)
     salidas = []
 
-    # Ejecutar cada prueba
+    # Cargar TPM una sola vez (todas las pruebas usan la misma red N20A)
+    print(f"Cargando TPM N20A... ", file=sys.stderr, end="")
+    gestor = Manager(estado)
+    ruta_tpm = gestor.tpm_filename
+    tpm = np.loadtxt(ruta_tpm, delimiter=",", dtype=np.int8)
+    print(f"OK ({tpm.shape[0]} filas)", file=sys.stderr)
+
+    print(f"Ejecutando {total} pruebas con k={k}...", file=sys.stderr)
+
     for idx, (alc, mec) in enumerate(pruebas, start=1):
-        print(f"\n--- Prueba {idx} ---", file=sys.stderr)
-        print(f"Alcance: {alc}, Mecanismo: {mec}, k={k}", file=sys.stderr)
         try:
-            particion, perdida, tiempo = run_test(estado, alc, mec, k, pagina='A')
-            # Formato CSV con tabuladores (mismo que se pegará al final)
+            particion, perdida, tiempo = run_test(
+                estado, alc, mec, k, tpm, gestor, pagina='A'
+            )
             linea = f"{particion}\t{perdida}\t{tiempo}"
             salidas.append(linea)
-            # Mostrar en vivo también
-            print(linea)
+            print(f"\r  Prueba {idx}/{total}", file=sys.stderr, end="")
         except Exception as e:
-            print(f"ERROR en prueba {idx}: {e}", file=sys.stderr)
-            salidas.append("\t\t")  # línea vacía para mantener formato
+            print(f"\n  ERROR prueba {idx}: {e}", file=sys.stderr)
+            salidas.append("\t\t")
+
+        if idx % 5 == 0:
+            gc.collect()
 
     # Al final, imprimir todas las salidas juntas
     print("\n" + "="*60, file=sys.stderr)
@@ -214,6 +206,7 @@ def main():
     print("="*60, file=sys.stderr)
     for linea in salidas:
         print(linea)
+
 
 if __name__ == "__main__":
     main()

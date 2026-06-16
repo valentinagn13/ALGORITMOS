@@ -43,6 +43,8 @@ class ColorFormatter(logging.Formatter):
 class SafeLogger:
     """Logger seguro/robusto para manejar cualquier tipo de entrada y caracteres especiales."""
 
+    silent = False
+
     def __init__(self, name: str):
         self._logger = self.__setup_logger(name)
 
@@ -65,6 +67,15 @@ class SafeLogger:
 
     def __setup_logger(self, name: str) -> logging.Logger:
         """Configura el logger con manejo de encodings y formateo personalizado."""
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.propagate = False
+
+        if self.__class__.silent:
+            logger.addHandler(logging.NullHandler())
+            return logger
+        logger.setLevel(logging.DEBUG)
+
         # Crear estructura de directorios para logs detallados
         base_log_dir = Path(LOGS_PATH)
         base_log_dir.mkdir(exist_ok=True)
@@ -81,22 +92,16 @@ class SafeLogger:
         # Archivo para el último log
         last_log_file = base_log_dir / f"last_{name}.log"
 
-        logger = logging.getLogger(name)
-        logger.setLevel(logging.DEBUG)
-        # Importante: evita la propagación a loggers padre
-        logger.propagate = False
-        logger.handlers.clear()
-
         # Formatter para archivos (sin colores)
         plain_formatter = logging.Formatter(
             "%(asctime)s [%(name)s] %(levelname)s %(processName)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",  # Removido %f para evitar el error
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
         # Formatter para consola (con colores)
         colored_formatter = ColorFormatter(
             "%(levelname)s (%(asctime)s): %(message)s",
-            datefmt="%H:%M:%S",  # Formato simplificado para la consola
+            datefmt="%H:%M:%S",
         )
 
         # Handler para archivo detallado
@@ -126,6 +131,8 @@ class SafeLogger:
 
     def set_log(self, level: int, *args, **kwargs) -> None:
         """Método genérico de logging."""
+        if self.__class__.silent:
+            return
         message = self._safe_format(*args, **kwargs)
         self._logger.log(level, message)
 

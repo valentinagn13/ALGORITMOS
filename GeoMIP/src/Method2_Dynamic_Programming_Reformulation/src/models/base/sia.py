@@ -48,9 +48,10 @@ class SIA(ABC):
 
     def sia_cargar_tpm(self) -> np.ndarray:
         """Carga TPM desde archivo"""
-        return np.genfromtxt(
+        return np.loadtxt(
             self.sia_gestor.tpm_filename,
             delimiter=COLON_DELIM,
+            dtype=np.int8,
         )
 
     def sia_preparar_subsistema(
