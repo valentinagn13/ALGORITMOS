@@ -79,7 +79,7 @@ from pathlib import Path
 
 
 METHOD2_ROOT = Path(__file__).resolve().parents[1]
-GEOMIP_ROOT = Path(__file__).resolve().parents[3]
+KGEOMIP_ROOT = Path(__file__).resolve().parents[3]
 
 def convertir_a_binario(texto, n_bits=20):
     posiciones = "ABCDEFGHIJKLMNOPQRST"[:n_bits]
@@ -112,7 +112,7 @@ def resolver_tpm_path(estado_inicio: str) -> Path:
     candidates = (
         METHOD2_ROOT / "src" / ".samples" / sample_name,
         METHOD2_ROOT / ".samples" / sample_name,
-        GEOMIP_ROOT / "data" / "samples" / sample_name,
+        KGEOMIP_ROOT / "src" / ".samples" / sample_name,
     )
     for candidate in candidates:
         if candidate.exists():
@@ -127,7 +127,7 @@ def inferir_estado_inicial() -> str:
     sample_dirs = (
         METHOD2_ROOT / "src" / ".samples",
         METHOD2_ROOT / ".samples",
-        GEOMIP_ROOT / "data" / "samples",
+        KGEOMIP_ROOT / "src" / ".samples",
     )
     pattern = re.compile(r"N(\d+)[A-Z]\.csv$")
     available_sizes = []
@@ -211,13 +211,13 @@ def iniciar():
     ruta_entrada = Path(
         os.getenv(
             "GEOMIP_INPUT_XLSX",
-            str(GEOMIP_ROOT / "results" / "Pruebas_Metodo2.xlsx"),
+            str(KGEOMIP_ROOT / "results" / "Pruebas_Metodo2.xlsx"),
         )
     )
     ruta_salida = Path(
         os.getenv(
             "GEOMIP_OUTPUT_XLSX",
-            str(GEOMIP_ROOT / "results" / "resultados_Geometric.xlsx"),
+            str(KGEOMIP_ROOT / "results" / "resultados_Geometric.xlsx"),
         )
     )
     ejecutar_desde_excel(ruta_entrada, ruta_salida)

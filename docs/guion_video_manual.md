@@ -194,7 +194,7 @@ python kGeoMip/data/creation.py
 **Voz:**
 "En resumen, el flujo típico de trabajo es:
 
-1. **Elegir o generar una red** (TPM) de `kGeoMip/data/samples/`.
+1. **Elegir o generar una red** (TPM) de `kGeoMip/src/Method2_Dynamic_Programming_Reformulation/src/.samples/`.
 2. **Configurar el análisis:** estado inicial, alcance, mecanismo, k.
 3. **Ejecutar** con la GUI, la CLI, o batch.
 4. **kGeoMip** construye el hipercubo de estados, calcula φ para cada candidato a partición, y para k>2 usa *Simulated Annealing* para buscar la mejor partición.

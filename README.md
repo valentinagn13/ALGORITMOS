@@ -20,8 +20,8 @@ pip install uv
 
 - `kGeoMip/src/Method1_GPU_Accelerated/`: procesamiento por lotes desde Excel.
 - `kGeoMip/src/Method2_Dynamic_Programming_Reformulation/`: procesamiento por lotes desde Excel.
-- `kGeoMip/data/samples/`: datasets TPM `N*.csv` usados por Method1/Method2.
-- `kGeoMip/results/`: archivos Excel de entrada/salida para Method1/Method2.
+- `kGeoMip/src/Method2_Dynamic_Programming_Reformulation/src/.samples/`: datasets TPM `N*.csv`.
+- `kGeoMip/results/`: archivos Excel de entrada/salida para Method2.
 
 ## 2) Ejecutar Method2_Dynamic_Programming_Reformulation
 

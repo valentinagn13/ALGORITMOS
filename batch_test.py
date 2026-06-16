@@ -150,7 +150,7 @@ def main():
             particion, perdida, tiempo = run_test(
                 estado, alc, mec, k, tpm, gestor, pagina='A'
             )
-            linea = f"{particion}  |  φ={perdida}  |  Tiempo={tiempo} seg"
+            linea = f"{particion}  |  phi={perdida}  |  Tiempo={tiempo} seg"
             salidas.append((alc, mec, linea))
             print(f"\r  Prueba {idx}/{total}", file=sys.stderr, end="")
         except Exception as e:
